@@ -30,6 +30,7 @@ export const adminRouter = createTRPCRouter({
       db.appointment.findMany({
         include: {
           client: { include: { user: { select: { name: true, email: true } } } },
+          anonUser: { select: { id: true, nickname: true } },
           consultant: { include: { user: { select: { name: true } } } },
         },
         orderBy: { createdAt: "desc" },

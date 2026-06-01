@@ -105,7 +105,7 @@ export default function AdminDashboard() {
               <tbody>
                 {data.recentAppointments.map((appt) => (
                   <tr key={appt.id} className="border-b border-gray-50 last:border-0">
-                    <td className="py-3 text-gray-700">{appt.client.user.name ?? appt.client.user.email}</td>
+                    <td className="py-3 text-gray-700">{appt.client?.user.name ?? appt.client?.user.email ?? appt.anonUser?.nickname ?? "مجهول"}</td>
                     <td className="py-3 text-gray-700">{appt.consultant.user.name}</td>
                     <td className="py-3 text-gray-500">
                       {new Date(appt.scheduledAt).toLocaleDateString("ar-SA")}

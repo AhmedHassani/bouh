@@ -6,6 +6,7 @@ import { createTRPCRouter, protectedProcedure, adminProcedure, consultantProcedu
 
 const appointmentInclude = {
   client: { include: { user: { select: { name: true, email: true, avatar: true } } } },
+  anonUser: { select: { id: true, nickname: true } },
   consultant: { include: { user: { select: { name: true, email: true, avatar: true } } } },
   coupon: true,
 } as const;
@@ -29,8 +30,10 @@ export const appointmentRouter = createTRPCRouter({
         where: {
           code: input.couponCode.toUpperCase(),
           isActive: true,
-          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-          OR: [{ usageLimit: null }, { usageCount: { lt: db.coupon.fields.usageLimit } }],
+          AND: [
+            { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+            { OR: [{ usageLimit: null }, { usageCount: { lt: 1000000 } }] },
+          ],
         },
       });
       if (!coupon) throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid coupon" });
@@ -154,6 +157,27 @@ export const appointmentRouter = createTRPCRouter({
       }
 
       return updated;
+    }),
+
+  // Get single appointment (consultant or admin)
+  getById: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const appointment = await db.appointment.findUnique({
+        where: { id: input.id },
+        include: appointmentInclude,
+      });
+      if (!appointment) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const isAdmin = ctx.userRole === "ADMIN" || ctx.userRole === "SUPER_ADMIN";
+      if (!isAdmin && appointment.consultant.userId !== ctx.dbUserId) {
+        // Allow client too
+        const clientProfile = await db.clientProfile.findUnique({ where: { userId: ctx.dbUserId! } });
+        if (!clientProfile || appointment.clientId !== clientProfile.id) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+      }
+      return appointment;
     }),
 
   // Admin — all appointments

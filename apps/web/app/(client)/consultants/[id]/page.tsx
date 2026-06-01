@@ -5,29 +5,70 @@ import { trpc } from "@/lib/trpc/client";
 import { Badge } from "@/components/ui/badge";
 import { Button, Input, Textarea } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
+import { useAnonymousIdentity } from "@/lib/hooks/useAnonymousIdentity";
+import { useRouter } from "next/navigation";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDateAr(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("ar-SA", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+}
+
+function hoursUntil(iso: string) {
+  return (new Date(iso).getTime() - Date.now()) / (1000 * 60 * 60);
+}
+
+// Generate next 14 days
+function getNextDays(n = 14) {
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i + 1);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ConsultantProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
+  const { identity } = useAnonymousIdentity();
+
   const { data: consultant, isLoading } = trpc.consultant.getById.useQuery({ id });
 
+  // Booking state
   const [bookingOpen, setBookingOpen] = useState(false);
-  const [bookingForm, setBookingForm] = useState({
-    scheduledAt: "",
-    notes: "",
-    couponCode: "",
-  });
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"REPRESENTATIVE" | "ELECTRONIC" | "">("");
+  const [notes, setNotes] = useState("");
+  const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState<{ discount: number; code: string } | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [bookingError, setBookingError] = useState("");
 
-  const validateCoupon = trpc.coupon.validate.useQuery(
-    { code: bookingForm.couponCode, consultantId: id },
-    { enabled: bookingForm.couponCode.length >= 3 },
+  const { data: slotsData, isLoading: slotsLoading } = trpc.anonymous.getTimeSlots.useQuery(
+    { consultantId: id, date: selectedDate },
+    { enabled: !!selectedDate }
   );
 
-  const createBooking = trpc.appointment.create.useMutation({
+  const validateCoupon = trpc.coupon.validate.useQuery(
+    { code: couponCode, consultantId: id },
+    { enabled: couponCode.length >= 3 }
+  );
+
+  const createBooking = trpc.anonymous.createAppointment.useMutation({
     onSuccess: () => {
       setBookingSuccess(true);
-      setTimeout(() => { setBookingOpen(false); setBookingSuccess(false); }, 2000);
+    },
+    onError: (err) => {
+      setBookingError(err.message);
     },
   });
 
@@ -45,18 +86,66 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
     } else {
       d = Math.min(Number(c.discountValue), sessionPrice);
     }
-    setCouponApplied({ discount: d, code: bookingForm.couponCode });
+    setCouponApplied({ discount: d, code: couponCode });
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-gray-400">جاري التحميل...</div>;
-  if (!consultant) return <div className="min-h-screen flex items-center justify-center text-gray-400">المستشار غير موجود</div>;
+  // 48h warning
+  const repWarning =
+    selectedSlot && paymentMethod === "REPRESENTATIVE" && hoursUntil(selectedSlot) < 48;
+
+  const canBook =
+    !!selectedSlot &&
+    !!paymentMethod &&
+    !(paymentMethod === "REPRESENTATIVE" && hoursUntil(selectedSlot) < 48);
+
+  function resetBooking() {
+    setBookingOpen(false);
+    setBookingSuccess(false);
+    setBookingError("");
+    setSelectedDate("");
+    setSelectedSlot("");
+    setPaymentMethod("");
+    setNotes("");
+    setCouponCode("");
+    setCouponApplied(null);
+  }
+
+  async function handleBook() {
+    if (!identity?.anonUserId || !canBook) return;
+    setBookingError("");
+    createBooking.mutate({
+      anonUserId: identity.anonUserId,
+      consultantId: id,
+      scheduledAt: selectedSlot,
+      paymentMethod: paymentMethod as "REPRESENTATIVE" | "ELECTRONIC",
+      notes: notes || undefined,
+      couponCode: couponApplied?.code,
+      assessmentResultId: identity.assessmentResultId ?? undefined,
+    });
+  }
+
+  if (isLoading)
+    return <div className="min-h-screen flex items-center justify-center text-gray-400">جاري التحميل...</div>;
+  if (!consultant)
+    return <div className="min-h-screen flex items-center justify-center text-gray-400">المستشار غير موجود</div>;
 
   return (
     <div className="min-h-screen bg-gray-50" dir="rtl">
+      {/* Top nav */}
+      <div className="bg-white border-b border-gray-100 px-6 py-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <a href="/" className="text-xl font-bold text-indigo-600">مساحة بوح</a>
+          {identity && (
+            <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+              مرحباً، {identity.nickname}
+            </span>
+          )}
+        </div>
+      </div>
+
       <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Back */}
         <a href="/consultants" className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-indigo-600 mb-6">
-          ← العودة للمستشارين
+          → العودة للمستشارين
         </a>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -144,87 +233,198 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm sticky top-6">
               <p className="text-gray-500 text-sm mb-1">سعر الجلسة</p>
               <p className="text-3xl font-bold text-indigo-600 mb-4">{Number(consultant.sessionPrice)} ر.س</p>
-
               <div className="space-y-2 text-sm text-gray-600 mb-6">
                 <div className="flex items-center gap-2"><span>📅</span> جلسة مدتها 60 دقيقة</div>
                 <div className="flex items-center gap-2"><span>🔒</span> جلسة سرية وآمنة</div>
                 <div className="flex items-center gap-2"><span>⭐</span> {consultant._count.appointments} جلسة مكتملة</div>
               </div>
 
-              <Button className="w-full" onClick={() => setBookingOpen(true)}>احجز جلسة الآن</Button>
+              {!identity ? (
+                <div>
+                  <p className="text-sm text-amber-600 bg-amber-50 rounded-xl p-3 mb-3">
+                    يجب العودة للصفحة الرئيسية وإدخال اسمك المستعار أولاً
+                  </p>
+                  <Button className="w-full" variant="secondary" onClick={() => router.push("/")}>
+                    العودة للرئيسية
+                  </Button>
+                </div>
+              ) : (
+                <Button className="w-full" onClick={() => setBookingOpen(true)}>
+                  احجز جلسة الآن
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Booking Modal */}
-      <Modal open={bookingOpen} onClose={() => setBookingOpen(false)} title="حجز جلسة" size="md">
+      <Modal open={bookingOpen} onClose={resetBooking} title="حجز جلسة" size="lg">
         {bookingSuccess ? (
           <div className="text-center py-8">
-            <p className="text-5xl mb-4">✅</p>
+            <p className="text-6xl mb-4">✅</p>
             <p className="text-xl font-bold text-gray-900 mb-2">تم الحجز بنجاح!</p>
-            <p className="text-gray-500">سيتواصل معك المستشار لتأكيد الموعد</p>
+            <p className="text-gray-500 mb-1">سيتواصل معك المستشار لتأكيد الموعد</p>
+            {selectedSlot && (
+              <p className="text-indigo-600 font-medium mt-2">{formatDateAr(selectedSlot)} — {formatTime(selectedSlot)}</p>
+            )}
+            <Button className="mt-6" onClick={resetBooking}>إغلاق</Button>
           </div>
         ) : (
-          <div className="space-y-4">
-            <Input
-              label="تاريخ ووقت الجلسة"
-              type="datetime-local"
-              value={bookingForm.scheduledAt}
-              onChange={(e) => setBookingForm((f) => ({ ...f, scheduledAt: e.target.value }))}
-            />
-            <Textarea
-              label="ملاحظات (اختياري)"
-              placeholder="اذكر ما تريد مناقشته..."
-              value={bookingForm.notes}
-              onChange={(e) => setBookingForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={3}
-            />
-
-            {/* Coupon */}
+          <div className="space-y-5">
+            {/* Step 1: Date */}
             <div>
-              <label className="text-sm font-medium text-gray-700 block mb-1">كوبون الخصم (اختياري)</label>
-              <div className="flex gap-2">
-                <input
-                  value={bookingForm.couponCode}
-                  onChange={(e) => { setBookingForm((f) => ({ ...f, couponCode: e.target.value.toUpperCase() })); setCouponApplied(null); }}
-                  placeholder="أدخل الكود"
-                  className="flex-1 px-4 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 font-mono"
-                />
-                <Button size="sm" variant="secondary" onClick={applyCoupon} disabled={!validateCoupon.data?.valid}>تطبيق</Button>
+              <p className="text-sm font-semibold text-gray-700 mb-2">📅 اختر التاريخ</p>
+              <div className="flex gap-2 overflow-x-auto pb-1 flex-wrap">
+                {getNextDays().map((d) => {
+                  const dayLabel = new Date(d).toLocaleDateString("ar-SA", { weekday: "short", day: "numeric", month: "short" });
+                  return (
+                    <button
+                      key={d}
+                      onClick={() => { setSelectedDate(d); setSelectedSlot(""); }}
+                      className={`flex-shrink-0 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${
+                        selectedDate === d
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-gray-50 text-gray-600 border-gray-200 hover:border-indigo-300"
+                      }`}
+                    >
+                      {dayLabel}
+                    </button>
+                  );
+                })}
               </div>
-              {bookingForm.couponCode && validateCoupon.data?.valid === false && (
-                <p className="text-xs text-rose-500 mt-1">الكوبون غير صالح</p>
-              )}
-              {couponApplied && (
-                <p className="text-xs text-emerald-600 mt-1">✅ خصم {couponApplied.discount} ر.س مطبّق</p>
-              )}
             </div>
 
-            {/* Price summary */}
-            <div className="bg-gray-50 rounded-xl p-4 text-sm">
-              <div className="flex justify-between mb-1">
-                <span className="text-gray-500">سعر الجلسة</span>
-                <span>{sessionPrice} ر.س</span>
+            {/* Step 2: Time slots */}
+            {selectedDate && (
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">🕐 اختر الوقت</p>
+                {slotsLoading ? (
+                  <p className="text-sm text-gray-400">جارٍ تحميل المواعيد...</p>
+                ) : !slotsData?.slots.length ? (
+                  <p className="text-sm text-amber-600 bg-amber-50 rounded-xl p-3">
+                    لا توجد مواعيد متاحة في هذا اليوم
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {slotsData.slots.map((slot) => (
+                      <button
+                        key={slot}
+                        onClick={() => setSelectedSlot(slot)}
+                        className={`py-2 rounded-xl border text-sm font-medium transition-all ${
+                          selectedSlot === slot
+                            ? "bg-indigo-600 text-white border-indigo-600"
+                            : "bg-gray-50 text-gray-700 border-gray-200 hover:border-indigo-300"
+                        }`}
+                      >
+                        {formatTime(slot)}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {couponApplied && (
-                <div className="flex justify-between mb-1 text-emerald-600">
-                  <span>خصم الكوبون</span>
-                  <span>-{discount} ر.س</span>
+            )}
+
+            {/* Step 3: Payment method */}
+            {selectedSlot && (
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">💳 طريقة الدفع</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setPaymentMethod("ELECTRONIC")}
+                    className={`p-4 rounded-2xl border-2 text-right transition-all ${
+                      paymentMethod === "ELECTRONIC"
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "border-gray-200 hover:border-indigo-200"
+                    }`}
+                  >
+                    <p className="text-xl mb-1">💳</p>
+                    <p className="font-semibold text-gray-800 text-sm">دفع إلكتروني</p>
+                    <p className="text-xs text-gray-400 mt-0.5">فوري عبر الإنترنت</p>
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod("REPRESENTATIVE")}
+                    className={`p-4 rounded-2xl border-2 text-right transition-all ${
+                      paymentMethod === "REPRESENTATIVE"
+                        ? "border-indigo-500 bg-indigo-50"
+                        : "border-gray-200 hover:border-indigo-200"
+                    }`}
+                  >
+                    <p className="text-xl mb-1">🤝</p>
+                    <p className="font-semibold text-gray-800 text-sm">عبر الممثل</p>
+                    <p className="text-xs text-gray-400 mt-0.5">يتطلب ٤٨ ساعة مسبقاً</p>
+                  </button>
                 </div>
-              )}
-              <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100">
-                <span>الإجمالي</span>
-                <span className="text-indigo-600">{finalPrice} ر.س</span>
+                {repWarning && (
+                  <p className="text-xs text-red-500 bg-red-50 rounded-xl p-2 mt-2">
+                    ⚠️ الدفع عبر الممثل يتطلب الحجز قبل 48 ساعة على الأقل من موعد الجلسة
+                  </p>
+                )}
               </div>
-            </div>
+            )}
 
-            <div className="flex gap-3 justify-end pt-2">
-              <Button variant="secondary" onClick={() => setBookingOpen(false)}>إلغاء</Button>
+            {/* Optional: notes & coupon */}
+            {paymentMethod && !repWarning && (
+              <>
+                <Textarea
+                  label="ملاحظات (اختياري)"
+                  placeholder="اذكر ما تريد مناقشته أو أي معلومات مفيدة..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                />
+
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">كوبون الخصم (اختياري)</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={couponCode}
+                      onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponApplied(null); }}
+                      placeholder="أدخل الكود"
+                      className="flex-1 px-4 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 font-mono"
+                    />
+                    <Button size="sm" variant="secondary" onClick={applyCoupon} disabled={!validateCoupon.data?.valid}>
+                      تطبيق
+                    </Button>
+                  </div>
+                  {couponCode && validateCoupon.data?.valid === false && (
+                    <p className="text-xs text-rose-500 mt-1">الكوبون غير صالح أو منتهي</p>
+                  )}
+                  {couponApplied && (
+                    <p className="text-xs text-emerald-600 mt-1">✅ خصم {couponApplied.discount} ر.س مطبّق</p>
+                  )}
+                </div>
+
+                {/* Price summary */}
+                <div className="bg-gray-50 rounded-xl p-4 text-sm">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-500">سعر الجلسة</span>
+                    <span>{sessionPrice} ر.س</span>
+                  </div>
+                  {couponApplied && (
+                    <div className="flex justify-between mb-1 text-emerald-600">
+                      <span>خصم الكوبون</span>
+                      <span>-{discount} ر.س</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100">
+                    <span>الإجمالي</span>
+                    <span className="text-indigo-600">{finalPrice} ر.س</span>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {bookingError && (
+              <p className="text-sm text-red-500 bg-red-50 rounded-xl p-3">{bookingError}</p>
+            )}
+
+            <div className="flex gap-3 justify-end pt-1">
+              <Button variant="secondary" onClick={resetBooking}>إلغاء</Button>
               <Button
-                onClick={() => createBooking.mutate({ consultantId: id, scheduledAt: new Date(bookingForm.scheduledAt).toISOString(), notes: bookingForm.notes, couponCode: couponApplied?.code })}
+                onClick={handleBook}
                 loading={createBooking.isPending}
-                disabled={!bookingForm.scheduledAt}
+                disabled={!canBook}
               >
                 تأكيد الحجز ({finalPrice} ر.س)
               </Button>

@@ -13,7 +13,7 @@ export default function EarningsPage() {
   type Row = NonNullable<typeof data>["data"][number];
 
   const columns = [
-    { key: "client", header: "العميل", render: (r: Row) => r.appointment.client.user.name ?? "-" },
+    { key: "client", header: "العميل", render: (r: Row) => r.appointment.client?.user.name ?? r.appointment.anonUser?.nickname ?? "مجهول" },
     { key: "date", header: "تاريخ الجلسة", render: (r: Row) => new Date(r.appointment.scheduledAt).toLocaleDateString("ar-SA") },
     { key: "gross", header: "السعر الكامل", render: (r: Row) => `${Number(r.grossAmount)} ر.س` },
     { key: "commission", header: "عمولة المنصة", render: (r: Row) => <span className="text-rose-600">-{Number(r.commissionAmount)} ر.س</span> },

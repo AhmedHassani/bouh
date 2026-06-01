@@ -28,6 +28,7 @@ export const earningRouter = createTRPCRouter({
             appointment: {
               include: {
                 client: { include: { user: { select: { name: true } } } },
+                anonUser: { select: { id: true, nickname: true } },
               },
             },
           },

@@ -9,6 +9,7 @@ import { earningRouter } from "./routers/earning";
 import { settingRouter } from "./routers/setting";
 import { notificationRouter } from "./routers/notification";
 import { adminRouter } from "./routers/admin";
+import { anonymousRouter } from "./routers/anonymous";
 
 export const appRouter = createTRPCRouter({
   user: userRouter,
@@ -21,6 +22,7 @@ export const appRouter = createTRPCRouter({
   setting: settingRouter,
   notification: notificationRouter,
   admin: adminRouter,
+  anonymous: anonymousRouter,
 });
 
 export type AppRouter = typeof appRouter;

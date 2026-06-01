@@ -40,8 +40,8 @@ export default function ConsultantAppointmentsPage() {
       header: "العميل",
       render: (r: Row) => (
         <div>
-          <p className="font-medium text-sm text-gray-800">{r.client.user.name}</p>
-          <p className="text-xs text-gray-400">{r.client.user.email}</p>
+          <p className="font-medium text-sm text-gray-800">{r.client?.user.name ?? r.anonUser?.nickname ?? "مجهول"}</p>
+          <p className="text-xs text-gray-400">{r.client?.user.email ?? "—"}</p>
         </div>
       ),
     },

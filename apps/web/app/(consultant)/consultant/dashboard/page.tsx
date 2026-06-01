@@ -68,7 +68,7 @@ export default function ConsultantDashboard() {
             {upcoming.data.map((appt) => (
               <div key={appt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
                 <div>
-                  <p className="font-medium text-gray-800 text-sm">{appt.client.user.name}</p>
+                  <p className="font-medium text-gray-800 text-sm">{appt.client?.user.name ?? appt.anonUser?.nickname ?? "مجهول"}</p>
                   <p className="text-xs text-gray-400">{new Date(appt.scheduledAt).toLocaleString("ar-SA")}</p>
                 </div>
                 <div className="flex items-center gap-3">

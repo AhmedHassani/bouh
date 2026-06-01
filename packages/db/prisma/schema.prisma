@@ -37,6 +37,12 @@ enum DiscountType {
   FIXED
 }
 
+enum PaymentMethod {
+  REPRESENTATIVE
+  ELECTRONIC
+  PENDING
+}
+
 enum NotificationType {
   BOOKING_CONFIRMED
   APPOINTMENT_REMINDER
@@ -44,6 +50,48 @@ enum NotificationType {
   COUPON_EXPIRY
   ASSESSMENT_COMPLETED
   GENERAL
+}
+
+// ─── Anonymous User ───────────────────────────────────────────────────────────
+
+model AnonymousUser {
+  id        String   @id @default(cuid())
+  deviceId  String
+  nickname  String
+  createdAt DateTime @default(now())
+
+  assessmentResults AnonAssessmentResult[]
+  appointments      Appointment[]
+
+  @@unique([deviceId, nickname])
+}
+
+model AnonAssessmentResult {
+  id            String        @id @default(cuid())
+  anonUserId    String
+  anonUser      AnonymousUser @relation(fields: [anonUserId], references: [id], onDelete: Cascade)
+  assessmentId  String
+  assessment    Assessment    @relation(fields: [assessmentId], references: [id])
+  totalScore    Int
+  categoryLabel String?
+  recommendation String?
+  completedAt   DateTime      @default(now())
+
+  answers     AnonAssessmentAnswer[]
+  appointment Appointment?
+
+  @@unique([anonUserId, assessmentId])
+}
+
+model AnonAssessmentAnswer {
+  id         String               @id @default(cuid())
+  resultId   String
+  result     AnonAssessmentResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  questionId String
+  question   AssessmentQuestion   @relation(fields: [questionId], references: [id])
+  optionId   String
+  option     QuestionOption       @relation(fields: [optionId], references: [id])
+  score      Int
 }
 
 // ─── Core User ────────────────────────────────────────────────────────────────
@@ -161,8 +209,16 @@ model BlockedDate {
 
 model Appointment {
   id            String            @id @default(cuid())
-  clientId      String
-  client        ClientProfile     @relation(fields: [clientId], references: [id])
+  // Authenticated client (optional)
+  clientId      String?
+  client        ClientProfile?    @relation(fields: [clientId], references: [id])
+  // Anonymous client (optional)
+  anonUserId    String?
+  anonUser      AnonymousUser?    @relation(fields: [anonUserId], references: [id])
+  // Assessment result linked at booking
+  assessmentResultId String?      @unique
+  assessmentResult   AnonAssessmentResult? @relation(fields: [assessmentResultId], references: [id])
+
   consultantId  String
   consultant    ConsultantProfile @relation(fields: [consultantId], references: [id])
   scheduledAt   DateTime
@@ -173,11 +229,13 @@ model Appointment {
   finalPrice    Decimal           @db.Decimal(10, 2)
   couponId      String?
   coupon        Coupon?           @relation(fields: [couponId], references: [id])
+  paymentMethod PaymentMethod     @default(PENDING)
   paymentStatus PaymentStatus     @default(PENDING)
   paymentRef    String?
   notes         String?
   cancelReason  String?
   cancelledBy   String?
+  meetingLink   String?
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -214,9 +272,10 @@ model Assessment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  questions  AssessmentQuestion[]
-  results    AssessmentResult[]
-  categories ResultCategory[]
+  questions   AssessmentQuestion[]
+  results     AssessmentResult[]
+  anonResults AnonAssessmentResult[]
+  categories  ResultCategory[]
 }
 
 model AssessmentQuestion {
@@ -230,8 +289,9 @@ model AssessmentQuestion {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  options QuestionOption[]
-  answers AssessmentAnswer[]
+  options      QuestionOption[]
+  answers      AssessmentAnswer[]
+  anonAnswers  AnonAssessmentAnswer[]
 }
 
 model QuestionOption {
@@ -243,7 +303,8 @@ model QuestionOption {
   score      Int                @default(0)
   order      Int
 
-  answers AssessmentAnswer[]
+  answers     AssessmentAnswer[]
+  anonAnswers AnonAssessmentAnswer[]
 }
 
 model ResultCategory {

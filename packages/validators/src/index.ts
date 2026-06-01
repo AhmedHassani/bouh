@@ -5,3 +5,4 @@ export * from "./coupon";
 export * from "./assessment";
 export * from "./specialization";
 export * from "./availability";
+export * from "./anonymous";
