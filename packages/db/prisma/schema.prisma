@@ -7,11 +7,351 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  CONSULTANT
+  CLIENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMED
+  APPOINTMENT_REMINDER
+  SESSION_CANCELLED
+  COUPON_EXPIRY
+  ASSESSMENT_COMPLETED
+  GENERAL
+}
+
+// ─── Core User ────────────────────────────────────────────────────────────────
+
 model User {
   id        String   @id @default(cuid())
   clerkId   String   @unique
   email     String   @unique
   name      String?
+  phone     String?
+  avatar    String?
+  role      UserRole @default(CLIENT)
+  locale    String   @default("ar")
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  clientProfile     ClientProfile?
+  consultantProfile ConsultantProfile?
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+}
+
+// ─── Client ───────────────────────────────────────────────────────────────────
+
+model ClientProfile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments AssessmentResult[]
+  bookings     Appointment[]
+  reviews      Review[]
+}
+
+// ─── Consultant ───────────────────────────────────────────────────────────────
+
+model ConsultantProfile {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bio                   String?
+  sessionPrice          Decimal  @default(0) @db.Decimal(10, 2)
+  city                  String?
+  yearsOfExperience     Int      @default(0)
+  academicQualification String?
+  certifications        String[]
+  commissionRate        Decimal  @default(0.20) @db.Decimal(5, 4)
+  rating                Decimal  @default(0) @db.Decimal(3, 2)
+  totalReviews          Int      @default(0)
+  isVerified            Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  specializations ConsultantSpecialization[]
+  availability    Availability[]
+  appointments    Appointment[]
+  earnings        Earning[]
+  reviews         Review[]
+}
+
+// ─── Specialization ───────────────────────────────────────────────────────────
+
+model Specialization {
+  id          String   @id @default(cuid())
+  nameAr      String
+  nameEn      String
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  consultants ConsultantSpecialization[]
+}
+
+model ConsultantSpecialization {
+  consultantId     String
+  consultant       ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  specializationId String
+  specialization   Specialization    @relation(fields: [specializationId], references: [id], onDelete: Cascade)
+
+  @@id([consultantId, specializationId])
+}
+
+// ─── Availability ─────────────────────────────────────────────────────────────
+
+model Availability {
+  id            String            @id @default(cuid())
+  consultantId  String
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  dayOfWeek     Int // 0=Sun … 6=Sat
+  startTime     String // "09:00"
+  endTime       String // "17:00"
+  slotDuration  Int               @default(60) // minutes
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  blockedDates BlockedDate[]
+}
+
+model BlockedDate {
+  id             String       @id @default(cuid())
+  availabilityId String
+  availability   Availability @relation(fields: [availabilityId], references: [id], onDelete: Cascade)
+  date           DateTime
+  reason         String?
+  createdAt      DateTime     @default(now())
+}
+
+// ─── Appointment ──────────────────────────────────────────────────────────────
+
+model Appointment {
+  id            String            @id @default(cuid())
+  clientId      String
+  client        ClientProfile     @relation(fields: [clientId], references: [id])
+  consultantId  String
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id])
+  scheduledAt   DateTime
+  duration      Int               @default(60)
+  status        AppointmentStatus @default(PENDING)
+  originalPrice Decimal           @db.Decimal(10, 2)
+  discountAmount Decimal          @default(0) @db.Decimal(10, 2)
+  finalPrice    Decimal           @db.Decimal(10, 2)
+  couponId      String?
+  coupon        Coupon?           @relation(fields: [couponId], references: [id])
+  paymentStatus PaymentStatus     @default(PENDING)
+  paymentRef    String?
+  notes         String?
+  cancelReason  String?
+  cancelledBy   String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  earning Earning?
+  review  Review?
+}
+
+// ─── Coupon ───────────────────────────────────────────────────────────────────
+
+model Coupon {
+  id            String       @id @default(cuid())
+  code          String       @unique
+  discountType  DiscountType
+  discountValue Decimal      @db.Decimal(10, 2)
+  maxDiscount   Decimal?     @db.Decimal(10, 2)
+  expiresAt     DateTime?
+  isActive      Boolean      @default(true)
+  usageLimit    Int?
+  usageCount    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  appointments Appointment[]
+}
+
+// ─── Assessment ───────────────────────────────────────────────────────────────
+
+model Assessment {
+  id          String   @id @default(cuid())
+  titleAr     String
+  titleEn     String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  questions  AssessmentQuestion[]
+  results    AssessmentResult[]
+  categories ResultCategory[]
+}
+
+model AssessmentQuestion {
+  id           String     @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  textAr       String
+  textEn       String
+  order        Int
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  options QuestionOption[]
+  answers AssessmentAnswer[]
+}
+
+model QuestionOption {
+  id         String             @id @default(cuid())
+  questionId String
+  question   AssessmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  textAr     String
+  textEn     String
+  score      Int                @default(0)
+  order      Int
+
+  answers AssessmentAnswer[]
+}
+
+model ResultCategory {
+  id             String     @id @default(cuid())
+  assessmentId   String
+  assessment     Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  labelAr        String
+  labelEn        String
+  minScore       Int
+  maxScore       Int
+  description    String?
+  recommendation String?
+  createdAt      DateTime   @default(now())
+}
+
+model AssessmentResult {
+  id            String        @id @default(cuid())
+  assessmentId  String
+  assessment    Assessment    @relation(fields: [assessmentId], references: [id])
+  clientId      String
+  client        ClientProfile @relation(fields: [clientId], references: [id])
+  totalScore    Int
+  categoryLabel String?
+  completedAt   DateTime      @default(now())
+
+  answers AssessmentAnswer[]
+}
+
+model AssessmentAnswer {
+  id         String             @id @default(cuid())
+  resultId   String
+  result     AssessmentResult   @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  questionId String
+  question   AssessmentQuestion @relation(fields: [questionId], references: [id])
+  optionId   String
+  option     QuestionOption     @relation(fields: [optionId], references: [id])
+  score      Int
+}
+
+// ─── Earnings ─────────────────────────────────────────────────────────────────
+
+model Earning {
+  id               String            @id @default(cuid())
+  consultantId     String
+  consultant       ConsultantProfile @relation(fields: [consultantId], references: [id])
+  appointmentId    String            @unique
+  appointment      Appointment       @relation(fields: [appointmentId], references: [id])
+  grossAmount      Decimal           @db.Decimal(10, 2)
+  commissionAmount Decimal           @db.Decimal(10, 2)
+  netAmount        Decimal           @db.Decimal(10, 2)
+  isPaid           Boolean           @default(false)
+  paidAt           DateTime?
+  createdAt        DateTime          @default(now())
+}
+
+// ─── Reviews ──────────────────────────────────────────────────────────────────
+
+model Review {
+  id            String            @id @default(cuid())
+  appointmentId String            @unique
+  appointment   Appointment       @relation(fields: [appointmentId], references: [id])
+  clientId      String
+  client        ClientProfile     @relation(fields: [clientId], references: [id])
+  consultantId  String
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id])
+  rating        Int // 1–5
+  comment       String?
+  isVisible     Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  titleAr   String
+  titleEn   String
+  bodyAr    String
+  bodyEn    String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+}
+
+// ─── Platform Settings ────────────────────────────────────────────────────────
+
+model PlatformSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Audit Logs ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
 }
