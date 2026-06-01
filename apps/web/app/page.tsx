@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 export default function HomePage() {
   return (
@@ -8,31 +7,20 @@ export default function HomePage() {
         <h1 className="text-5xl font-bold text-gray-900 mb-4">مساحة بوح</h1>
         <p className="text-xl text-gray-600 mb-10">مساحتك الآمنة للتعبير والمشاركة</p>
 
-        <SignedOut>
-          <div className="flex gap-4 justify-center">
-            <Link
-              href="/sign-in"
-              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
-            >
-              تسجيل الدخول
-            </Link>
-            <Link
-              href="/sign-up"
-              className="px-6 py-3 bg-white text-indigo-600 border border-indigo-600 rounded-lg font-medium hover:bg-indigo-50 transition-colors"
-            >
-              إنشاء حساب
-            </Link>
-          </div>
-        </SignedOut>
-
-        <SignedIn>
+        <div className="flex gap-4 justify-center">
           <Link
-            href="/dashboard"
+            href="/sign-in"
             className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
           >
-            الذهاب إلى لوحة التحكم
+            تسجيل الدخول
           </Link>
-        </SignedIn>
+          <Link
+            href="/sign-up"
+            className="px-6 py-3 bg-white text-indigo-600 border border-indigo-600 rounded-lg font-medium hover:bg-indigo-50 transition-colors"
+          >
+            إنشاء حساب
+          </Link>
+        </div>
       </div>
     </main>
   );
