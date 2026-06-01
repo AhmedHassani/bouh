@@ -23,7 +23,6 @@ export default function AssessmentWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, { optionId: string; score: number }>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [resultData, setResultData] = useState<{ categoryLabel: string | null; recommendation: string | null; totalScore: number } | null>(null);
 
   const { data: assessment, isLoading } = trpc.assessment.getById.useQuery(
     { id: assessmentId },
@@ -95,46 +94,6 @@ export default function AssessmentWizard() {
   const currentQuestion = questions[currentStep];
   const currentAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
 
-  // Show result screen
-  if (resultData) {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center p-6" dir="rtl">
-        <div className="max-w-lg w-full">
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-lg p-8 text-center">
-            <div className="text-5xl mb-4">✅</div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">اكتملت نتيجتك</h2>
-            <p className="text-gray-400 text-sm mb-6">استناداً إلى إجاباتك</p>
-
-            {resultData.categoryLabel && (
-              <div className="bg-indigo-50 rounded-2xl p-4 mb-4">
-                <p className="text-sm text-indigo-500 mb-1">التصنيف</p>
-                <p className="text-xl font-bold text-indigo-700">{resultData.categoryLabel}</p>
-              </div>
-            )}
-
-            {resultData.recommendation && (
-              <div className="bg-amber-50 rounded-2xl p-4 mb-6 text-right">
-                <p className="text-sm text-amber-600 mb-1 font-medium">التوصية</p>
-                <p className="text-gray-700 text-sm leading-relaxed">{resultData.recommendation}</p>
-              </div>
-            )}
-
-            <div className="bg-gray-50 rounded-xl p-3 mb-6">
-              <p className="text-xs text-gray-400">المجموع: <span className="font-bold text-gray-700">{resultData.totalScore} نقطة</span></p>
-            </div>
-
-            <button
-              onClick={() => router.push("/consultants")}
-              className="w-full py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              ابحث عن مستشار مناسب ←
-            </button>
-          </div>
-        </div>
-      </main>
-    );
-  }
-
   function selectOption(questionId: string, optionId: string, score: number) {
     setAnswers((prev) => ({ ...prev, [questionId]: { optionId, score } }));
   }
@@ -164,11 +123,7 @@ export default function AssessmentWizard() {
         localStorage.removeItem(PROGRESS_KEY(anonUserId, assessmentId));
 
         markAssessmentCompleted(result.id);
-        setResultData({
-          categoryLabel: result.categoryLabel ?? null,
-          recommendation: result.recommendation ?? null,
-          totalScore: result.totalScore,
-        });
+        router.push("/consultants");
       } catch (e) {
         console.error(e);
       } finally {

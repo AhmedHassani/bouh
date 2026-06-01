@@ -1,8 +1,24 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-// Placeholder middleware — replace with clerkMiddleware() once you add real Clerk keys
-export function middleware(_req: NextRequest) {
+const ADMIN_PATHS = ["/admin"];
+const CONSULTANT_PATHS = ["/consultant"];
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+
+  const isAdminPath = ADMIN_PATHS.some((p) => pathname.startsWith(p));
+  const isConsultantPath = CONSULTANT_PATHS.some((p) => pathname.startsWith(p));
+
+  if (isAdminPath || isConsultantPath) {
+    const token = req.cookies.get("misahuh_access_token")?.value;
+    if (!token) {
+      const loginUrl = new URL("/login", req.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+  }
+
   return NextResponse.next();
 }
 

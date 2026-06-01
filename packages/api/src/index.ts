@@ -10,8 +10,10 @@ import { settingRouter } from "./routers/setting";
 import { notificationRouter } from "./routers/notification";
 import { adminRouter } from "./routers/admin";
 import { anonymousRouter } from "./routers/anonymous";
+import { authRouter } from "./routers/auth";
 
 export const appRouter = createTRPCRouter({
+  auth: authRouter,
   user: userRouter,
   consultant: consultantRouter,
   specialization: specializationRouter,
@@ -29,3 +31,4 @@ export type AppRouter = typeof appRouter;
 
 export { createTRPCRouter, publicProcedure, protectedProcedure, adminProcedure, consultantProcedure } from "./trpc";
 export type { Context } from "./trpc";
+export { verifyAccessToken } from "./lib/jwt";

@@ -103,6 +103,7 @@ model User {
   name      String?
   phone     String?
   avatar    String?
+  password  String?
   role      UserRole @default(CLIENT)
   locale    String   @default("ar")
   isActive  Boolean  @default(true)
@@ -113,6 +114,19 @@ model User {
   consultantProfile ConsultantProfile?
   notifications     Notification[]
   auditLogs         AuditLog[]
+  refreshTokens     RefreshToken[]
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // ─── Client ───────────────────────────────────────────────────────────────────

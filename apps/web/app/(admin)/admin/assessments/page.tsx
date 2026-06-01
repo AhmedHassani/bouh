@@ -7,52 +7,121 @@ import { Badge } from "@/components/ui/badge";
 import { Button, Input, Textarea } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface OptionDraft {
+  textAr: string;
+  textEn: string;
+  score: number;
+  order: number;
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default function AssessmentsPage() {
   const { data: assessments, refetch } = trpc.assessment.list.useQuery();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [questionModal, setQuestionModal] = useState(false);
   const [createModal, setCreateModal] = useState(false);
 
-  const { data: detail } = trpc.assessment.getById.useQuery(
+  const { data: detail, refetch: refetchDetail } = trpc.assessment.getById.useQuery(
     { id: selectedId! },
     { enabled: !!selectedId },
   );
 
+  // ── Assessment form ──
   const [assessmentForm, setAssessmentForm] = useState({
     titleAr: "", titleEn: "", description: "",
     categories: [{ labelAr: "", labelEn: "", minScore: 0, maxScore: 20, description: "", recommendation: "" }],
   });
+  // titleEn and labelEn are auto-filled from Arabic for schema compatibility
 
-  const [questionForm, setQuestionForm] = useState({
-    textAr: "", textEn: "", order: 0,
-    options: [
-      { textAr: "", textEn: "", score: 0, order: 0 },
-      { textAr: "", textEn: "", score: 1, order: 1 },
-    ],
+  // ── Question form ──
+  const [qTextAr, setQTextAr] = useState("");
+  const [qTextEn, setQTextEn] = useState("");
+  const [qOrder, setQOrder] = useState(1);
+  const [options, setOptions] = useState<OptionDraft[]>([
+    { textAr: "نعم", textEn: "Yes", score: 1, order: 0 },
+    { textAr: "لا", textEn: "No", score: 0, order: 1 },
+  ]);
+  const [newOptionText, setNewOptionText] = useState("");
+  const [newOptionScore, setNewOptionScore] = useState(0);
+
+  // ── Mutations ──
+  const createAssessment = trpc.assessment.create.useMutation({
+    onSuccess: () => { refetch(); setCreateModal(false); },
+  });
+  const addQuestion = trpc.assessment.addQuestion.useMutation({
+    onSuccess: () => { refetch(); refetchDetail(); resetQuestionForm(); setQuestionModal(false); },
+  });
+  const deleteQuestion = trpc.assessment.deleteQuestion.useMutation({
+    onSuccess: () => { refetch(); refetchDetail(); },
+  });
+  const toggleQuestion = trpc.assessment.toggleQuestion.useMutation({
+    onSuccess: () => { refetch(); refetchDetail(); },
   });
 
-  const createAssessment = trpc.assessment.create.useMutation({ onSuccess: () => { refetch(); setCreateModal(false); } });
-  const addQuestion = trpc.assessment.addQuestion.useMutation({ onSuccess: () => { refetch(); setQuestionModal(false); } });
-  const deleteQuestion = trpc.assessment.deleteQuestion.useMutation({ onSuccess: () => refetch() });
-  const toggleQuestion = trpc.assessment.toggleQuestion.useMutation({ onSuccess: () => refetch() });
+  function resetQuestionForm() {
+    setQTextAr(""); setQTextEn(""); setQOrder((detail?.questions.length ?? 0) + 1);
+    setOptions([
+      { textAr: "نعم", textEn: "Yes", score: 1, order: 0 },
+      { textAr: "لا", textEn: "No", score: 0, order: 1 },
+    ]);
+    setNewOptionText(""); setNewOptionScore(0);
+  }
+
+  function openQuestionModal() {
+    resetQuestionForm();
+    setQOrder((detail?.questions.length ?? 0) + 1);
+    setQuestionModal(true);
+  }
+
+  function addNewOption() {
+    if (!newOptionText.trim()) return;
+    setOptions((prev) => [
+      ...prev,
+      { textAr: newOptionText.trim(), textEn: newOptionText.trim(), score: newOptionScore, order: prev.length },
+    ]);
+    setNewOptionText("");
+    setNewOptionScore(0);
+  }
+
+  function removeOption(i: number) {
+    setOptions((prev) => prev.filter((_, idx) => idx !== i).map((o, idx) => ({ ...o, order: idx })));
+  }
+
+  function updateOptionField(i: number, field: keyof OptionDraft, value: string | number) {
+    setOptions((prev) => { const copy = [...prev]; copy[i] = { ...copy[i], [field]: value }; return copy; });
+  }
 
   const addCategory = () =>
-    setAssessmentForm((f) => ({ ...f, categories: [...f.categories, { labelAr: "", labelEn: "", minScore: 0, maxScore: 0, description: "", recommendation: "" }] }));
+    setAssessmentForm((f) => ({
+      ...f,
+      categories: [...f.categories, { labelAr: "", labelEn: "", minScore: 0, maxScore: 0, description: "", recommendation: "" }],
+    }));
 
-  const addOption = () =>
-    setQuestionForm((f) => ({ ...f, options: [...f.options, { textAr: "", textEn: "", score: f.options.length, order: f.options.length }] }));
+  const removeCategory = (i: number) =>
+    setAssessmentForm((f) => ({ ...f, categories: f.categories.filter((_, idx) => idx !== i) }));
 
   return (
-    <div>
+    <div dir="rtl">
       <PageHeader
         title="الاختبارات النفسية"
         action={<Button onClick={() => setCreateModal(true)}>+ اختبار جديد</Button>}
       />
 
+      {/* Assessment list */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
         {assessments?.map((a) => (
-          <button key={a.id} onClick={() => setSelectedId(a.id === selectedId ? null : a.id)}
-            className={`text-right bg-white rounded-2xl border p-5 shadow-sm transition-all ${a.id === selectedId ? "border-indigo-400 ring-1 ring-indigo-200" : "border-gray-100 hover:border-indigo-200"}`}>
+          <button
+            key={a.id}
+            onClick={() => setSelectedId(a.id === selectedId ? null : a.id)}
+            className={`text-right bg-white rounded-2xl border p-5 shadow-sm transition-all ${
+              a.id === selectedId
+                ? "border-indigo-400 ring-1 ring-indigo-200"
+                : "border-gray-100 hover:border-indigo-200"
+            }`}
+          >
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h3 className="font-semibold text-gray-800">{a.titleAr}</h3>
@@ -65,119 +134,258 @@ export default function AssessmentsPage() {
         ))}
       </div>
 
-      {/* Selected Assessment Detail */}
+      {/* ── Question list ───────────────────────────────────── */}
       {detail && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-lg font-bold text-gray-800">{detail.titleAr}</h2>
-            <Button size="sm" onClick={() => setQuestionModal(true)}>+ إضافة سؤال</Button>
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <h2 className="text-base font-bold text-gray-800">
+              إدارة أسئلة التقييم النفسي
+              <span className="text-sm font-normal text-gray-400 mr-2">— {detail.titleAr}</span>
+            </h2>
+            <button
+              onClick={openQuestionModal}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-colors"
+            >
+              <span className="text-lg leading-none">+</span> سؤال جديد
+            </button>
           </div>
 
-          <div className="space-y-4">
+          {/* Questions */}
+          <div className="divide-y divide-gray-50">
+            {detail.questions.length === 0 && (
+              <div className="py-14 text-center text-gray-400">
+                <p className="text-4xl mb-3">🧠</p>
+                <p className="text-sm">لا توجد أسئلة بعد — أضف أول سؤال</p>
+              </div>
+            )}
+
             {detail.questions.map((q, qi) => (
-              <div key={q.id} className="border border-gray-100 rounded-xl p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <span className="text-xs text-gray-400 ml-2">س {qi + 1}</span>
-                    <span className="text-sm font-medium text-gray-800">{q.textAr}</span>
-                    {!q.isActive && <Badge variant="neutral" >مُعطَّل</Badge>}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant={q.isActive ? "secondary" : "ghost"}
-                      onClick={() => toggleQuestion.mutate({ id: q.id })} loading={toggleQuestion.isPending}>
-                      {q.isActive ? "تعطيل" : "تفعيل"}
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => deleteQuestion.mutate({ id: q.id })} loading={deleteQuestion.isPending}>حذف</Button>
+              <div key={q.id} className={`px-6 py-5 flex gap-4 ${!q.isActive ? "opacity-50" : ""}`}>
+                {/* Number */}
+                <div className="flex-shrink-0 w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm mt-0.5">
+                  {qi + 1}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  {/* Question text */}
+                  <p className="font-semibold text-gray-800 mb-3 leading-relaxed">{q.textAr}</p>
+
+                  {/* Options as chips */}
+                  <div className="flex flex-wrap gap-2">
+                    {q.options.map((opt) => (
+                      <div
+                        key={opt.id}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 rounded-lg text-sm text-gray-700"
+                      >
+                        <span>{opt.textAr}</span>
+                        <span className="text-indigo-500 font-medium text-xs">({opt.score})</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {q.options.map((opt) => (
-                    <div key={opt.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                      <span className="text-gray-700">{opt.textAr}</span>
-                      <span className="text-indigo-600 font-medium">{opt.score} نقطة</span>
-                    </div>
-                  ))}
+
+                {/* Actions */}
+                <div className="flex-shrink-0 flex items-start gap-2">
+                  <button
+                    onClick={() => toggleQuestion.mutate({ id: q.id })}
+                    title={q.isActive ? "تعطيل" : "تفعيل"}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-amber-50 hover:text-amber-500 transition-colors"
+                  >
+                    {q.isActive ? "⏸" : "▶"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm("حذف هذا السؤال؟")) deleteQuestion.mutate({ id: q.id });
+                    }}
+                    title="حذف"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                  >
+                    🗑
+                  </button>
                 </div>
               </div>
             ))}
-            {detail.questions.length === 0 && <p className="text-center text-gray-400 py-6">لا توجد أسئلة بعد</p>}
           </div>
 
-          {/* Categories */}
-          <div className="mt-6 border-t pt-5">
-            <h3 className="font-semibold text-gray-700 mb-3">فئات النتائج</h3>
-            <div className="grid grid-cols-2 gap-3">
-              {detail.categories.map((cat) => (
-                <div key={cat.id} className="bg-indigo-50 rounded-xl p-3">
-                  <div className="flex justify-between mb-1">
-                    <span className="font-medium text-indigo-800 text-sm">{cat.labelAr}</span>
-                    <span className="text-xs text-indigo-500">{cat.minScore}–{cat.maxScore}</span>
+          {/* Result categories */}
+          {detail.categories.length > 0 && (
+            <div className="border-t border-gray-100 px-6 py-5">
+              <p className="text-sm font-semibold text-gray-600 mb-3">فئات النتائج</p>
+              <div className="flex flex-wrap gap-3">
+                {detail.categories.map((cat) => (
+                  <div key={cat.id} className="bg-indigo-50 rounded-xl px-4 py-2.5 text-sm">
+                    <span className="font-semibold text-indigo-700">{cat.labelAr}</span>
+                    <span className="text-indigo-400 text-xs mr-2">{cat.minScore}–{cat.maxScore} نقطة</span>
                   </div>
-                  {cat.description && <p className="text-xs text-indigo-600">{cat.description}</p>}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {/* Create Assessment Modal */}
-      <Modal open={createModal} onClose={() => setCreateModal(false)} title="اختبار نفسي جديد" size="lg">
+      {/* ── Create Assessment Modal ───────────────────────── */}
+      <Modal open={createModal} onClose={() => setCreateModal(false)} title="اختبار نفسي جديد" size="md">
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="العنوان بالعربي" value={assessmentForm.titleAr} onChange={(e) => setAssessmentForm((f) => ({ ...f, titleAr: e.target.value }))} />
-            <Input label="العنوان بالإنجليزي" value={assessmentForm.titleEn} onChange={(e) => setAssessmentForm((f) => ({ ...f, titleEn: e.target.value }))} />
-          </div>
-          <Textarea label="الوصف" value={assessmentForm.description} onChange={(e) => setAssessmentForm((f) => ({ ...f, description: e.target.value }))} />
+          <Input
+            label="عنوان الاختبار"
+            placeholder="مثال: تقييم الصحة النفسية العامة"
+            value={assessmentForm.titleAr}
+            onChange={(e) => setAssessmentForm((f) => ({ ...f, titleAr: e.target.value, titleEn: e.target.value }))}
+          />
 
           <div className="border-t pt-4">
             <div className="flex justify-between items-center mb-3">
-              <h4 className="font-medium text-gray-700">فئات النتائج</h4>
+              <h4 className="font-medium text-gray-700 text-sm">فئات النتائج</h4>
               <Button size="sm" variant="secondary" onClick={addCategory}>+ إضافة فئة</Button>
             </div>
             {assessmentForm.categories.map((cat, i) => (
-              <div key={i} className="grid grid-cols-2 gap-2 mb-3 p-3 bg-gray-50 rounded-xl">
-                <Input placeholder="الاسم عربي" value={cat.labelAr} onChange={(e) => setAssessmentForm((f) => { const cats = [...f.categories]; cats[i] = { ...cats[i], labelAr: e.target.value }; return { ...f, categories: cats }; })} />
-                <Input placeholder="الاسم إنجليزي" value={cat.labelEn} onChange={(e) => setAssessmentForm((f) => { const cats = [...f.categories]; cats[i] = { ...cats[i], labelEn: e.target.value }; return { ...f, categories: cats }; })} />
-                <Input type="number" placeholder="من" value={cat.minScore} onChange={(e) => setAssessmentForm((f) => { const cats = [...f.categories]; cats[i] = { ...cats[i], minScore: +e.target.value }; return { ...f, categories: cats }; })} />
-                <Input type="number" placeholder="إلى" value={cat.maxScore} onChange={(e) => setAssessmentForm((f) => { const cats = [...f.categories]; cats[i] = { ...cats[i], maxScore: +e.target.value }; return { ...f, categories: cats }; })} />
+              <div key={i} className="flex items-center gap-2 mb-2">
+                <Input
+                  placeholder={`الفئة ${i + 1} (مثال: خفيف)`}
+                  value={cat.labelAr}
+                  onChange={(e) => setAssessmentForm((f) => {
+                    const cats = [...f.categories];
+                    cats[i] = { ...cats[i], labelAr: e.target.value, labelEn: e.target.value };
+                    return { ...f, categories: cats };
+                  })}
+                />
+                <button
+                  onClick={() => removeCategory(i)}
+                  className="flex-shrink-0 text-gray-400 hover:text-red-400 text-sm px-2"
+                >✕</button>
               </div>
             ))}
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={() => setCreateModal(false)}>إلغاء</Button>
-            <Button onClick={() => createAssessment.mutate(assessmentForm)} loading={createAssessment.isPending}>إنشاء</Button>
+            <Button onClick={() => createAssessment.mutate(assessmentForm)} loading={createAssessment.isPending}>
+              إنشاء الاختبار
+            </Button>
           </div>
         </div>
       </Modal>
 
-      {/* Add Question Modal */}
-      <Modal open={questionModal} onClose={() => setQuestionModal(false)} title="إضافة سؤال" size="lg">
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input label="السؤال بالعربي" value={questionForm.textAr} onChange={(e) => setQuestionForm((f) => ({ ...f, textAr: e.target.value }))} />
-            <Input label="السؤال بالإنجليزي" value={questionForm.textEn} onChange={(e) => setQuestionForm((f) => ({ ...f, textEn: e.target.value }))} />
+      {/* ── Add Question Modal ────────────────────────────── */}
+      <Modal open={questionModal} onClose={() => setQuestionModal(false)} title="إضافة سؤال جديد" size="md">
+        <div className="space-y-5">
+          {/* Question text + order */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">نص السؤال</label>
+            <input
+              value={qTextAr}
+              onChange={(e) => { setQTextAr(e.target.value); setQTextEn(e.target.value); }}
+              placeholder="اكتب السؤال هنا..."
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-right"
+              dir="rtl"
+            />
           </div>
-          <Input label="الترتيب" type="number" value={questionForm.order} onChange={(e) => setQuestionForm((f) => ({ ...f, order: +e.target.value }))} />
 
-          <div className="border-t pt-3">
-            <div className="flex justify-between items-center mb-3">
-              <h4 className="font-medium text-gray-700">الخيارات</h4>
-              <Button size="sm" variant="secondary" onClick={addOption}>+ خيار</Button>
+          {/* Order */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 block mb-1.5">رقم السؤال (الترتيب)</label>
+            <input
+              type="number"
+              min={1}
+              value={qOrder}
+              onChange={(e) => setQOrder(+e.target.value)}
+              className="w-24 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-center font-semibold"
+            />
+            <p className="text-xs text-gray-400 mt-1">١ = أول سؤال، ٢ = ثاني، وهكذا</p>
+          </div>
+
+          {/* Options */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-2">الخيارات:</p>
+
+            {/* Existing options as chips */}
+            <div className="flex flex-wrap gap-2 mb-3 min-h-[40px]">
+              {options.map((opt, i) => (
+                <div
+                  key={i}
+                  className="inline-flex items-center gap-2 pl-2 pr-3 py-1.5 bg-gray-100 rounded-lg border border-gray-200"
+                >
+                  {/* Editable text */}
+                  <input
+                    value={opt.textAr}
+                    onChange={(e) => updateOptionField(i, "textAr", e.target.value)}
+                    className="bg-transparent text-sm text-gray-700 w-16 outline-none text-right"
+                    dir="rtl"
+                  />
+                  {/* Score badge */}
+                  <input
+                    type="number"
+                    value={opt.score}
+                    onChange={(e) => updateOptionField(i, "score", +e.target.value)}
+                    className="bg-indigo-50 text-indigo-600 text-xs font-medium w-8 text-center rounded px-1 outline-none border-none"
+                    title="النقاط"
+                  />
+                  {/* Remove */}
+                  <button
+                    onClick={() => removeOption(i)}
+                    className="text-gray-400 hover:text-red-500 text-xs font-bold leading-none transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
             </div>
-            {questionForm.options.map((opt, i) => (
-              <div key={i} className="grid grid-cols-3 gap-2 mb-2">
-                <Input placeholder="عربي" value={opt.textAr} onChange={(e) => setQuestionForm((f) => { const opts = [...f.options]; opts[i] = { ...opts[i], textAr: e.target.value }; return { ...f, options: opts }; })} />
-                <Input placeholder="English" value={opt.textEn} onChange={(e) => setQuestionForm((f) => { const opts = [...f.options]; opts[i] = { ...opts[i], textEn: e.target.value }; return { ...f, options: opts }; })} />
-                <Input type="number" placeholder="النقاط" value={opt.score} onChange={(e) => setQuestionForm((f) => { const opts = [...f.options]; opts[i] = { ...opts[i], score: +e.target.value }; return { ...f, options: opts }; })} />
-              </div>
-            ))}
+
+            {/* Add new option */}
+            <div className="flex items-center gap-2 border border-dashed border-gray-300 rounded-xl px-3 py-2.5">
+              <button
+                onClick={addNewOption}
+                className="w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-lg leading-none hover:bg-indigo-700 transition-colors flex-shrink-0"
+              >
+                +
+              </button>
+              <input
+                value={newOptionText}
+                onChange={(e) => setNewOptionText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addNewOption()}
+                placeholder="إضافة خيار جديد"
+                className="flex-1 bg-transparent text-sm text-gray-600 outline-none placeholder:text-gray-400 text-right"
+                dir="rtl"
+              />
+              <input
+                type="number"
+                value={newOptionScore}
+                onChange={(e) => setNewOptionScore(+e.target.value)}
+                placeholder="نقاط"
+                className="w-14 text-center text-sm border border-gray-200 rounded-lg px-2 py-1 outline-none focus:border-indigo-300"
+                title="النقاط"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-1.5 pr-1">اضغط + أو Enter لإضافة الخيار</p>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setQuestionModal(false)}>إلغاء</Button>
-            <Button onClick={() => selectedId && addQuestion.mutate({ ...questionForm, assessmentId: selectedId })} loading={addQuestion.isPending}>إضافة</Button>
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-1 border-t">
+            <button
+              onClick={() => { setQuestionModal(false); resetQuestionForm(); }}
+              className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              إلغاء
+            </button>
+            <button
+              onClick={() => {
+                if (!selectedId || !qTextAr.trim() || options.length === 0) return;
+                addQuestion.mutate({
+                  assessmentId: selectedId,
+                  textAr: qTextAr,
+                  textEn: qTextEn || qTextAr,
+                  order: qOrder,
+                  options,
+                });
+              }}
+              disabled={addQuestion.isPending || !qTextAr.trim() || options.length === 0}
+              className="px-5 py-2 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              {addQuestion.isPending ? "جارٍ الحفظ..." : "حفظ"}
+            </button>
           </div>
         </div>
       </Modal>
