@@ -5,10 +5,8 @@ const nextConfig: NextConfig = {
   transpilePackages: ["@repo/api", "@repo/db", "@repo/ui", "@repo/validators"],
   // Allow Next.js to trace files from the monorepo root for Prisma
   outputFileTracingRoot: path.join(__dirname, "../../"),
-  experimental: {
-    // Ensure Prisma client is bundled (not externalized) — needed for monorepo
-    serverComponentsExternalPackages: [],
-  },
+  // Prevent Prisma client from being externalized (required for monorepo with Turbopack)
+  serverExternalPackages: [],
 };
 
 export default nextConfig;

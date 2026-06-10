@@ -1,35 +1,40 @@
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { appRouter } from "@repo/api";
 import type { Context } from "@repo/api";
-import { db } from "@repo/db";
 import { verifyAccessToken } from "@repo/api";
+
+// Dev user IDs — must match real DB records
+const DEV_ADMIN_CLERK_ID      = "dev_super_admin";
+const DEV_CONSULTANT_CLERK_ID = "manual_1780583138089"; // Ahmed Rahman (CONSULTANT)
+const DEV_CONSULTANT_DB_ID    = "cmpzl86d1001vlt84q4oi7zxy";
 
 async function createContext(req: Request): Promise<Context> {
   const auth = req.headers.get("authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
 
   if (!token) {
-    // Dev bypass: auto-create super admin when no token present (development only)
     if (process.env.NODE_ENV === "development") {
-      const DEV_CLERK_ID = "dev_super_admin";
-      let devUser = await db.user.findUnique({ where: { clerkId: DEV_CLERK_ID } });
-      if (!devUser) {
-        devUser = await db.user.create({
-          data: {
-            clerkId: DEV_CLERK_ID,
-            email: "admin@dev.local",
-            name: "Dev Admin",
-            role: "SUPER_ADMIN",
-          },
-        });
+      // Detect consultant portal from Referer header
+      const referer = req.headers.get("referer") ?? "";
+      const isConsultantPortal = referer.includes("/consultant/");
+      if (isConsultantPortal) {
+        return { userId: DEV_CONSULTANT_CLERK_ID, userRole: "CONSULTANT", dbUserId: DEV_CONSULTANT_DB_ID };
       }
-      return { userId: DEV_CLERK_ID, userRole: "SUPER_ADMIN", dbUserId: devUser.id };
+      return { userId: DEV_ADMIN_CLERK_ID, userRole: "SUPER_ADMIN", dbUserId: DEV_ADMIN_CLERK_ID };
     }
     return { userId: null, userRole: null, dbUserId: null };
   }
 
   const payload = await verifyAccessToken(token);
   if (!payload) {
+    if (process.env.NODE_ENV === "development") {
+      const referer = req.headers.get("referer") ?? "";
+      const isConsultantPortal = referer.includes("/consultant/");
+      if (isConsultantPortal) {
+        return { userId: DEV_CONSULTANT_CLERK_ID, userRole: "CONSULTANT", dbUserId: DEV_CONSULTANT_DB_ID };
+      }
+      return { userId: DEV_ADMIN_CLERK_ID, userRole: "SUPER_ADMIN", dbUserId: DEV_ADMIN_CLERK_ID };
+    }
     return { userId: null, userRole: null, dbUserId: null };
   }
 

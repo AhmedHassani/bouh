@@ -66,7 +66,7 @@ export default function ConsultantsPage() {
       key: "sessionPrice",
       header: "سعر الجلسة",
       sortable: true,
-      render: (row: Row) => `${Number(row.sessionPrice).toLocaleString("ar")} ر.س`,
+      render: (row: Row) => `${Number(row.sessionPrice).toLocaleString("ar")} د.ع`,
     },
     {
       key: "rating",

@@ -40,6 +40,7 @@ enum DiscountType {
 enum PaymentMethod {
   REPRESENTATIVE
   ELECTRONIC
+  PACKAGE
   PENDING
 }
 
@@ -62,6 +63,7 @@ model AnonymousUser {
 
   assessmentResults AnonAssessmentResult[]
   appointments      Appointment[]
+  userPackages      UserPackage[]
 
   @@unique([deviceId, nickname])
 }
@@ -71,14 +73,14 @@ model AnonAssessmentResult {
   anonUserId    String
   anonUser      AnonymousUser @relation(fields: [anonUserId], references: [id], onDelete: Cascade)
   assessmentId  String
-  assessment    Assessment    @relation(fields: [assessmentId], references: [id])
+  assessment    Assessment    @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
   totalScore    Int
   categoryLabel String?
   recommendation String?
   completedAt   DateTime      @default(now())
 
-  answers     AnonAssessmentAnswer[]
-  appointment Appointment?
+  answers      AnonAssessmentAnswer[]
+  appointments Appointment[]
 
   @@unique([anonUserId, assessmentId])
 }
@@ -88,9 +90,9 @@ model AnonAssessmentAnswer {
   resultId   String
   result     AnonAssessmentResult @relation(fields: [resultId], references: [id], onDelete: Cascade)
   questionId String
-  question   AssessmentQuestion   @relation(fields: [questionId], references: [id])
+  question   AssessmentQuestion   @relation(fields: [questionId], references: [id], onDelete: Cascade)
   optionId   String
-  option     QuestionOption       @relation(fields: [optionId], references: [id])
+  option     QuestionOption       @relation(fields: [optionId], references: [id], onDelete: Cascade)
   score      Int
 }
 
@@ -167,6 +169,17 @@ model ConsultantProfile {
   appointments    Appointment[]
   earnings        Earning[]
   reviews         Review[]
+  timeOffs        ConsultantTimeOff[]
+}
+
+model ConsultantTimeOff {
+  id           String            @id @default(cuid())
+  consultantId String
+  consultant   ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  startDate    DateTime          @db.Date
+  endDate      DateTime          @db.Date
+  note         String?
+  createdAt    DateTime          @default(now())
 }
 
 // ─── Specialization ───────────────────────────────────────────────────────────
@@ -230,7 +243,7 @@ model Appointment {
   anonUserId    String?
   anonUser      AnonymousUser?    @relation(fields: [anonUserId], references: [id])
   // Assessment result linked at booking
-  assessmentResultId String?      @unique
+  assessmentResultId String?
   assessmentResult   AnonAssessmentResult? @relation(fields: [assessmentResultId], references: [id])
 
   consultantId  String
@@ -246,6 +259,9 @@ model Appointment {
   paymentMethod PaymentMethod     @default(PENDING)
   paymentStatus PaymentStatus     @default(PENDING)
   paymentRef    String?
+  // Link to the user-package this session was deducted from (if paid via package)
+  userPackageId String?
+  userPackage   UserPackage?      @relation(fields: [userPackageId], references: [id])
   notes         String?
   cancelReason  String?
   cancelledBy   String?
@@ -255,6 +271,51 @@ model Appointment {
 
   earning Earning?
   review  Review?
+}
+
+// ─── Packages ─────────────────────────────────────────────────────────────────
+
+/// Package — admin-defined session bundle
+model Package {
+  id           String   @id @default(cuid())
+  nameAr       String
+  descriptionAr String?
+  sessions     Int      // number of sessions in this package
+  price        Decimal  @db.Decimal(10, 2) // total price in IQD
+  icon         String?  @default("🌱")
+  isFeatured   Boolean  @default(false)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  userPackages UserPackage[]
+}
+
+/// UserPackage — a purchased package by an anonymous user
+model UserPackage {
+  id              String        @id @default(cuid())
+  packageId       String
+  package         Package       @relation(fields: [packageId], references: [id])
+  anonUserId      String
+  anonUser        AnonymousUser @relation(fields: [anonUserId], references: [id], onDelete: Cascade)
+
+  totalSessions   Int           // snapshot at purchase time
+  usedSessions    Int           @default(0)
+
+  pricePaid       Decimal       @db.Decimal(10, 2)
+  paymentMethod   PaymentMethod @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentRef      String?       // ZainCash transaction id
+
+  purchasedAt     DateTime      @default(now())
+  expiresAt       DateTime?     // optional expiry
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  appointments    Appointment[]
+
+  @@index([anonUserId])
 }
 
 // ─── Coupon ───────────────────────────────────────────────────────────────────

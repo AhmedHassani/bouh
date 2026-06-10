@@ -84,7 +84,7 @@ export default function NewConsultantPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Input label="سعر الجلسة (ر.س)" type="number" value={form.sessionPrice} onChange={(e) => set("sessionPrice", +e.target.value)} />
+          <Input label="سعر الجلسة (د.ع)" type="number" value={form.sessionPrice} onChange={(e) => set("sessionPrice", +e.target.value)} />
           <Input label="نسبة العمولة (0–1)" type="number" step="0.01" value={form.commissionRate} onChange={(e) => set("commissionRate", +e.target.value)} />
         </div>
 

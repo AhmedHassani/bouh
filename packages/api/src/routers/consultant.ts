@@ -9,7 +9,7 @@ import {
 import { createTRPCRouter, publicProcedure, adminProcedure, consultantProcedure, protectedProcedure } from "../trpc";
 
 const consultantInclude = {
-  user: { select: { name: true, email: true, avatar: true, isActive: true, createdAt: true } },
+  user: { select: { id: true, name: true, email: true, avatar: true, isActive: true, createdAt: true } },
   specializations: {
     include: { specialization: true },
   },
@@ -195,6 +195,44 @@ export const consultantRouter = createTRPCRouter({
       await db.availability.deleteMany({ where: { consultantId: profile.id } });
       return db.availability.createMany({
         data: input.map((slot) => ({ ...slot, consultantId: profile.id })),
+      });
+    }),
+
+  // Time off — get all
+  getTimeOff: consultantProcedure.query(async ({ ctx }) => {
+    const profile = await db.consultantProfile.findUniqueOrThrow({ where: { userId: ctx.dbUserId! } });
+    return db.consultantTimeOff.findMany({
+      where: { consultantId: profile.id },
+      orderBy: { startDate: "asc" },
+    });
+  }),
+
+  // Time off — add range
+  addTimeOff: consultantProcedure
+    .input(z.object({
+      startDate: z.string(), // ISO date string
+      endDate:   z.string(),
+      note:      z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await db.consultantProfile.findUniqueOrThrow({ where: { userId: ctx.dbUserId! } });
+      return db.consultantTimeOff.create({
+        data: {
+          consultantId: profile.id,
+          startDate: new Date(input.startDate),
+          endDate:   new Date(input.endDate),
+          note:      input.note,
+        },
+      });
+    }),
+
+  // Time off — delete
+  deleteTimeOff: consultantProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const profile = await db.consultantProfile.findUniqueOrThrow({ where: { userId: ctx.dbUserId! } });
+      return db.consultantTimeOff.delete({
+        where: { id: input.id, consultantId: profile.id },
       });
     }),
 });

@@ -188,4 +188,39 @@ export const authRouter = createTRPCRouter({
       const token = await signGuestToken(user.id);
       return { guestToken: token, expiresIn: 30 * 24 * 60 * 60 };
     }),
+
+  // Admin: reset a user's password
+  resetPassword: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+      newPassword: z.string().min(6, "كلمة المرور 6 أحرف على الأقل"),
+    }))
+    .mutation(async ({ input }) => {
+      const hashed = await hashPassword(input.newPassword);
+      await db.user.update({ where: { id: input.userId }, data: { password: hashed } });
+      // Revoke all active sessions
+      await db.refreshToken.updateMany({
+        where: { userId: input.userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return { success: true };
+    }),
+
+  // Admin: update a user's email
+  updateEmail: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+      email: z.string().email("البريد الإلكتروني غير صالح"),
+    }))
+    .mutation(async ({ input }) => {
+      const exists = await db.user.findFirst({
+        where: { email: input.email, NOT: { id: input.userId } },
+      });
+      if (exists) throw new TRPCError({ code: "CONFLICT", message: "البريد الإلكتروني مستخدم بالفعل" });
+      return db.user.update({
+        where: { id: input.userId },
+        data: { email: input.email },
+        select: { id: true, email: true },
+      });
+    }),
 });

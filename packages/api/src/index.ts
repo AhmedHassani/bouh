@@ -11,6 +11,7 @@ import { notificationRouter } from "./routers/notification";
 import { adminRouter } from "./routers/admin";
 import { anonymousRouter } from "./routers/anonymous";
 import { authRouter } from "./routers/auth";
+import { packageRouter } from "./routers/package";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   notification: notificationRouter,
   admin: adminRouter,
   anonymous: anonymousRouter,
+  package:   packageRouter,
 });
 
 export type AppRouter = typeof appRouter;
@@ -32,3 +34,4 @@ export type AppRouter = typeof appRouter;
 export { createTRPCRouter, publicProcedure, protectedProcedure, adminProcedure, consultantProcedure } from "./trpc";
 export type { Context } from "./trpc";
 export { verifyAccessToken } from "./lib/jwt";
+export { verifyZainCashCallback, verifyZainCashTransaction, verifyZainCashCallbackJWT } from "./lib/zaincash";

@@ -15,8 +15,11 @@
     "@repo/db": "workspace:*",
     "@repo/validators": "workspace:*",
     "@trpc/server": "^11.0.0",
+    "@types/jsonwebtoken": "^9.0.10",
     "bcryptjs": "^3.0.3",
+    "googleapis": "^173.0.0",
     "jose": "^6.2.3",
+    "jsonwebtoken": "^9.0.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {

@@ -10,6 +10,9 @@ export const specializationRouter = createTRPCRouter({
       return db.specialization.findMany({
         where: input?.isActive !== undefined ? { isActive: input.isActive } : undefined,
         orderBy: { nameAr: "asc" },
+        include: {
+          _count: { select: { consultants: true } },
+        },
       });
     }),
 

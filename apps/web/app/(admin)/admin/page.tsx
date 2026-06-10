@@ -35,17 +35,51 @@ export default function AdminDashboard() {
         <StatsCard title="الجلسات المكتملة" value={s?.completedAppointments ?? 0} icon="✅" color="emerald" />
         <StatsCard
           title="إجمالي الإيرادات"
-          value={`${(s?.totalRevenue ?? 0).toLocaleString("ar")} ر.س`}
+          value={`${(s?.totalRevenue ?? 0).toLocaleString("ar")} د.ع`}
           icon="💰"
           color="amber"
         />
         <StatsCard
           title="إجمالي العمولات"
-          value={`${(s?.totalCommissions ?? 0).toLocaleString("ar")} ر.س`}
+          value={`${(s?.totalCommissions ?? 0).toLocaleString("ar")} د.ع`}
           icon="📈"
           color="rose"
         />
       </div>
+
+      {/* Packages stats row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+        <StatsCard
+          title="إيرادات الباقات"
+          value={`${(s?.packageRevenue ?? 0).toLocaleString("ar")} د.ع`}
+          icon="📦"
+          color="purple"
+        />
+        <StatsCard title="الباقات المباعة" value={s?.totalPackagesSold ?? 0} icon="💎" color="emerald" />
+        <StatsCard title="الباقات النشطة" value={s?.activePackages ?? 0} icon="✨" color="indigo" />
+      </div>
+
+      {/* Payment method breakdown */}
+      {data?.appointmentsByPayment && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm mb-6">
+          <h3 className="font-semibold text-gray-800 mb-4">الجلسات حسب طريقة الدفع</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { key: "ELECTRONIC",     label: "💳 إلكتروني",   color: "bg-indigo-50 text-indigo-700 border-indigo-100" },
+              { key: "REPRESENTATIVE", label: "🤝 ممثل",       color: "bg-amber-50 text-amber-700 border-amber-100" },
+              { key: "PACKAGE",        label: "📦 باقة",       color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
+              { key: "PENDING",        label: "⏳ معلّق",       color: "bg-gray-50 text-gray-600 border-gray-100" },
+            ].map((m) => (
+              <div key={m.key} className={`rounded-xl border px-4 py-3 ${m.color}`}>
+                <p className="text-xs font-medium opacity-80 mb-1">{m.label}</p>
+                <p className="text-2xl font-extrabold">
+                  {(data.appointmentsByPayment as Record<string, number>)[m.key] ?? 0}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Appointments by Status */}
@@ -110,7 +144,7 @@ export default function AdminDashboard() {
                     <td className="py-3 text-gray-500">
                       {new Date(appt.scheduledAt).toLocaleDateString("ar-SA")}
                     </td>
-                    <td className="py-3 text-gray-700">{Number(appt.finalPrice).toLocaleString("ar")} ر.س</td>
+                    <td className="py-3 text-gray-700">{Number(appt.finalPrice).toLocaleString("ar")} د.ع</td>
                     <td className="py-3">{appointmentStatusBadge(appt.status)}</td>
                   </tr>
                 ))}

@@ -203,6 +203,31 @@ export const anonymousRouter = createTRPCRouter({
         }
       }
 
+      // PACKAGE payment — must have unused sessions
+      let userPackage: { id: string; totalSessions: number; usedSessions: number } | null = null;
+      if (input.paymentMethod === "PACKAGE") {
+        if (!input.userPackageId) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "يجب اختيار باقة" });
+        }
+        userPackage = await db.userPackage.findUnique({
+          where: { id: input.userPackageId },
+          select: { id: true, totalSessions: true, usedSessions: true, anonUserId: true, paymentStatus: true },
+        }) as never;
+        if (!userPackage) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "الباقة غير موجودة" });
+        }
+        const pkg = await db.userPackage.findUnique({ where: { id: input.userPackageId } });
+        if (pkg?.anonUserId !== input.anonUserId) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+        if (pkg?.paymentStatus !== "PAID") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "الباقة غير مدفوعة" });
+        }
+        if (userPackage!.usedSessions >= userPackage!.totalSessions) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "نفدت جلسات الباقة" });
+        }
+      }
+
       // Handle coupon
       let couponId: string | undefined;
       let discountAmount = 0;
@@ -227,7 +252,10 @@ export const anonymousRouter = createTRPCRouter({
       }
 
       const originalPrice = Number(consultant.sessionPrice);
-      const finalPrice = Math.max(0, originalPrice - discountAmount);
+      // If paying via package, price is effectively 0 (already paid in package)
+      const finalPrice = input.paymentMethod === "PACKAGE"
+        ? 0
+        : Math.max(0, originalPrice - discountAmount);
 
       const appointment = await db.appointment.create({
         data: {
@@ -239,10 +267,14 @@ export const anonymousRouter = createTRPCRouter({
           discountAmount,
           finalPrice,
           paymentMethod: input.paymentMethod,
-          paymentStatus: "PENDING",
+          // PACKAGE = already paid; others = pending
+          paymentStatus: input.paymentMethod === "PACKAGE" ? "PAID" : "PENDING",
           couponId,
           assessmentResultId: input.assessmentResultId,
           notes: input.notes,
+          ...(input.paymentMethod === "PACKAGE" && input.userPackageId && {
+            userPackageId: input.userPackageId,
+          }),
         },
         include: {
           consultant: { include: { user: { select: { name: true, email: true } } } },
@@ -250,13 +282,124 @@ export const anonymousRouter = createTRPCRouter({
         },
       });
 
+      // Increment used sessions on the package
+      if (input.paymentMethod === "PACKAGE" && input.userPackageId) {
+        await db.userPackage.update({
+          where: { id: input.userPackageId },
+          data:  { usedSessions: { increment: 1 } },
+        });
+      }
+
       return appointment;
     }),
 
-  // Get anon user's appointments
+  // ZainCash — start payment for an existing appointment
+  startZainCashPayment: publicProcedure
+    .input(z.object({
+      appointmentId: z.string(),
+      anonUserId:    z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const { initZainCashPayment } = await import("../lib/zaincash");
+
+      const appointment = await db.appointment.findUniqueOrThrow({
+        where: { id: input.appointmentId },
+        include: { consultant: { include: { user: true } } },
+      });
+
+      if (appointment.anonUserId !== input.anonUserId) {
+        throw new TRPCError({ code: "FORBIDDEN" });
+      }
+      // Prevent double-payment
+      if (appointment.paymentStatus === "PAID") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "تم الدفع بالفعل" });
+      }
+      // Prevent payment on cancelled/past appointments
+      if (appointment.status === "CANCELLED") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "هذا الموعد ملغى" });
+      }
+      if (new Date(appointment.scheduledAt) < new Date()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "انتهى وقت هذا الموعد" });
+      }
+      // If there's an existing pending payment, double-check with ZainCash first
+      if (appointment.paymentRef) {
+        const { verifyZainCashTransaction } = await import("../lib/zaincash");
+        const verification = await verifyZainCashTransaction(appointment.paymentRef);
+        if (verification.success) {
+          await db.appointment.update({ where: { id: appointment.id }, data: { paymentStatus: "PAID" } });
+          throw new TRPCError({ code: "BAD_REQUEST", message: "تم الدفع بالفعل" });
+        }
+      }
+
+      const appUrl = process.env.APP_URL?.startsWith("http://localhost") || process.env.APP_URL?.startsWith("https://")
+        ? process.env.APP_URL
+        : "http://localhost:3000";
+
+      const result = await initZainCashPayment({
+        amount:      Number(appointment.finalPrice),
+        orderId:     appointment.id,
+        serviceType: `جلسة استشارة - ${appointment.consultant.user.name}`,
+        successUrl:  `${appUrl}/api/zaincash/callback/${appointment.id}/success`,
+        failureUrl:  `${appUrl}/api/zaincash/callback/${appointment.id}/failure`,
+      });
+
+      // Save transaction id for later verification
+      await db.appointment.update({
+        where: { id: appointment.id },
+        data:  { paymentRef: result.transactionId },
+      });
+
+      return { paymentUrl: result.paymentUrl };
+    }),
+
+  // Get anon user's appointments — also opportunistically polls ZainCash for pending electronic payments
   myAppointments: publicProcedure
     .input(z.object({ anonUserId: z.string() }))
     .query(async ({ ctx, input }) => {
+      // Background: reconcile pending electronic payments
+      const pending = await db.appointment.findMany({
+        where: {
+          anonUserId:    input.anonUserId,
+          paymentMethod: "ELECTRONIC",
+          paymentStatus: "PENDING",
+        },
+        select: { id: true, paymentRef: true, updatedAt: true, scheduledAt: true },
+      });
+
+      if (pending.length > 0) {
+        const { verifyZainCashTransaction } = await import("../lib/zaincash");
+        const now = Date.now();
+        const PAYMENT_TIMEOUT_MS = 20 * 60 * 1000; // 20 minutes
+
+        await Promise.allSettled(pending.map(async (appt) => {
+          // Case 1: never tried to pay (no transaction created yet) → leave as PENDING
+          if (!appt.paymentRef) return;
+
+          // Case 2: verify with ZainCash
+          const result = await verifyZainCashTransaction(appt.paymentRef);
+
+          if (result.success) {
+            await db.appointment.update({ where: { id: appt.id }, data: { paymentStatus: "PAID" } });
+            return;
+          }
+
+          const status = result.status?.toLowerCase();
+          if (status && ["failed", "cancelled", "expired", "declined"].includes(status)) {
+            await db.appointment.update({ where: { id: appt.id }, data: { paymentStatus: "FAILED" } });
+            return;
+          }
+
+          // Case 3: stale PENDING — opened ZainCash but never completed (>20min since last update)
+          const ageMs = now - appt.updatedAt.getTime();
+          if (ageMs > PAYMENT_TIMEOUT_MS) {
+            await db.appointment.update({
+              where: { id: appt.id },
+              data:  { paymentStatus: "FAILED", status: "CANCELLED" },
+            });
+          }
+        }));
+      }
+
       return db.appointment.findMany({
         where: { anonUserId: input.anonUserId },
         orderBy: { scheduledAt: "desc" },

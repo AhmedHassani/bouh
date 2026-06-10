@@ -20,15 +20,15 @@ export function Sidebar({ items, title, subtitle, footer }: SidebarProps) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-white border-l border-gray-100 flex flex-col min-h-screen shadow-sm">
+    <aside className="w-64 bg-white border-l border-gray-100 flex flex-col h-screen sticky top-0 shadow-sm">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-gray-100">
+      <div className="px-6 py-5 border-b border-gray-100 flex-shrink-0">
         <h2 className="font-bold text-gray-900 text-lg">{title}</h2>
         {subtitle && <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
+      {/* Nav — scrollable */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           return (
@@ -48,8 +48,8 @@ export function Sidebar({ items, title, subtitle, footer }: SidebarProps) {
         })}
       </nav>
 
-      {/* Footer */}
-      {footer && <div className="px-3 py-4 border-t border-gray-100">{footer}</div>}
+      {/* Footer — always pinned to bottom */}
+      {footer && <div className="flex-shrink-0 px-3 py-4 border-t border-gray-100">{footer}</div>}
     </aside>
   );
 }

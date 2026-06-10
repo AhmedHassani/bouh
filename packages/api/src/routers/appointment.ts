@@ -92,6 +92,29 @@ export const appointmentRouter = createTRPCRouter({
     const profile = await db.consultantProfile.findUnique({ where: { userId: ctx.dbUserId! } });
     if (!profile) return { data: [], total: 0 };
 
+    // Opportunistically poll ZainCash for any pending electronic payments
+    const pending = await db.appointment.findMany({
+      where: {
+        consultantId:  profile.id,
+        paymentMethod: "ELECTRONIC",
+        paymentStatus: "PENDING",
+        paymentRef:    { not: null },
+      },
+      select: { id: true, paymentRef: true },
+    });
+    if (pending.length > 0) {
+      const { verifyZainCashTransaction } = await import("../lib/zaincash");
+      await Promise.allSettled(pending.map(async (appt) => {
+        if (!appt.paymentRef) return;
+        const result = await verifyZainCashTransaction(appt.paymentRef);
+        if (result.success) {
+          await db.appointment.update({ where: { id: appt.id }, data: { paymentStatus: "PAID" } });
+        } else if (result.status && ["failed", "cancelled", "expired"].includes(result.status.toLowerCase())) {
+          await db.appointment.update({ where: { id: appt.id }, data: { paymentStatus: "FAILED" } });
+        }
+      }));
+    }
+
     const where = {
       consultantId: profile.id,
       ...(input.status && { status: input.status }),
@@ -129,12 +152,32 @@ export const appointmentRouter = createTRPCRouter({
       const isAdminRole = ctx.userRole === "ADMIN" || ctx.userRole === "SUPER_ADMIN";
       if (!isOwner && !isAdminRole) throw new TRPCError({ code: "FORBIDDEN" });
 
+      // Auto-generate Google Meet link when confirming
+      let meetingLink = appointment.meetingLink;
+      if (input.status === "CONFIRMED" && !meetingLink) {
+        const { createGoogleMeetLink } = await import("../lib/google-meet");
+        const apptFull = await db.appointment.findUnique({
+          where: { id: input.id },
+          include: { consultant: { include: { user: true } } },
+        });
+        const generated = await createGoogleMeetLink({
+          title: `جلسة مساحة بوح - ${apptFull?.consultant.user.name ?? "مستشار"}`,
+          startTime: new Date(apptFull?.scheduledAt ?? Date.now()),
+          durationMinutes: apptFull?.duration ?? 60,
+        });
+        if (generated) {
+          meetingLink = generated;
+        }
+        // If Google Meet failed, no link is set — admin/consultant can add manually
+      }
+
       const updated = await db.appointment.update({
         where: { id: input.id },
         data: {
           status: input.status,
           cancelReason: input.cancelReason,
           cancelledBy: ctx.dbUserId,
+          ...(meetingLink && { meetingLink }),
         },
         include: appointmentInclude,
       });

@@ -5,12 +5,60 @@ import { createAssessmentSchema, createQuestionSchema, submitAssessmentSchema } 
 import { createTRPCRouter, publicProcedure, adminProcedure, protectedProcedure } from "../trpc";
 
 export const assessmentRouter = createTRPCRouter({
+  // Public: only the single active assessment (for client home page)
   list: publicProcedure.query(() =>
     db.assessment.findMany({
       where: { isActive: true },
       include: { _count: { select: { questions: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 1,
     }),
   ),
+
+  // Admin: all assessments regardless of status
+  listAll: adminProcedure.query(() =>
+    db.assessment.findMany({
+      include: { _count: { select: { questions: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+  ),
+
+  // Admin: set one assessment as the active one (deactivate all others)
+  setActive: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      await db.assessment.updateMany({ data: { isActive: false } });
+      return db.assessment.update({ where: { id: input.id }, data: { isActive: true } });
+    }),
+
+  // Admin: delete assessment (cascade manually to avoid FK violations)
+  deleteAssessment: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input }) => {
+      const { id } = input;
+      // 1. Unlink appointments from assessment results
+      await db.appointment.updateMany({
+        where: { assessmentResult: { assessmentId: id } },
+        data: { assessmentResultId: null },
+      });
+      // 2. Delete anon answers → results
+      const results = await db.anonAssessmentResult.findMany({ where: { assessmentId: id } });
+      for (const r of results) {
+        await db.anonAssessmentAnswer.deleteMany({ where: { resultId: r.id } });
+      }
+      await db.anonAssessmentResult.deleteMany({ where: { assessmentId: id } });
+      // 3. Delete questions → options
+      const questions = await db.assessmentQuestion.findMany({ where: { assessmentId: id } });
+      for (const q of questions) {
+        await db.anonAssessmentAnswer.deleteMany({ where: { questionId: q.id } });
+        await db.questionOption.deleteMany({ where: { questionId: q.id } });
+      }
+      await db.assessmentQuestion.deleteMany({ where: { assessmentId: id } });
+      // 4. Delete categories
+      await db.resultCategory.deleteMany({ where: { assessmentId: id } });
+      // 5. Finally delete the assessment
+      return db.assessment.delete({ where: { id } });
+    }),
 
   getById: publicProcedure.input(z.object({ id: z.string() })).query(async ({ input }) => {
     const assessment = await db.assessment.findUnique({

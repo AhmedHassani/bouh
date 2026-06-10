@@ -64,7 +64,7 @@ export default function CouponsPage() {
   const columns = [
     { key: "code", header: "الكود", render: (r: Row) => <code className="bg-gray-100 px-2 py-0.5 rounded font-mono text-indigo-700">{r.code}</code> },
     { key: "discountType", header: "نوع الخصم", render: (r: Row) => r.discountType === "PERCENTAGE" ? "نسبة مئوية" : "مبلغ ثابت" },
-    { key: "discountValue", header: "القيمة", render: (r: Row) => r.discountType === "PERCENTAGE" ? `${r.discountValue}%` : `${r.discountValue} ر.س` },
+    { key: "discountValue", header: "القيمة", render: (r: Row) => r.discountType === "PERCENTAGE" ? `${r.discountValue}%` : `${r.discountValue} د.ع` },
     { key: "usageCount", header: "الاستخدام", render: (r: Row) => `${r.usageCount}${r.usageLimit ? ` / ${r.usageLimit}` : ""}` },
     { key: "expiresAt", header: "الانتهاء", render: (r: Row) => r.expiresAt ? new Date(r.expiresAt).toLocaleDateString("ar-SA") : "بلا تاريخ" },
     { key: "isActive", header: "الحالة", render: (r: Row) => <Badge variant={r.isActive ? "success" : "neutral"}>{r.isActive ? "نشط" : "موقوف"}</Badge> },
@@ -93,8 +93,8 @@ export default function CouponsPage() {
         <div className="space-y-4">
           <Input label="كود الكوبون" value={form.code} onChange={(e) => set("code", e.target.value.toUpperCase())} disabled={!!editId} />
           <Select label="نوع الخصم" value={form.discountType} onChange={(e) => set("discountType", e.target.value as "PERCENTAGE" | "FIXED")}
-            options={[{ value: "PERCENTAGE", label: "نسبة مئوية (%)" }, { value: "FIXED", label: "مبلغ ثابت (ر.س)" }]} />
-          <Input label={`قيمة الخصم (${form.discountType === "PERCENTAGE" ? "%" : "ر.س"})`} type="number" value={form.discountValue} onChange={(e) => set("discountValue", +e.target.value)} />
+            options={[{ value: "PERCENTAGE", label: "نسبة مئوية (%)" }, { value: "FIXED", label: "مبلغ ثابت (د.ع)" }]} />
+          <Input label={`قيمة الخصم (${form.discountType === "PERCENTAGE" ? "%" : "د.ع"})`} type="number" value={form.discountValue} onChange={(e) => set("discountValue", +e.target.value)} />
           {form.discountType === "PERCENTAGE" && (
             <Input label="الحد الأقصى للخصم (اختياري)" type="number" value={form.maxDiscount} onChange={(e) => set("maxDiscount", e.target.value)} />
           )}

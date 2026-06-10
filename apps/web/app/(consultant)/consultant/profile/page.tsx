@@ -1,105 +1,92 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/client";
-import { PageHeader } from "@/components/ui/page-header";
-import { Input, Textarea, Button } from "@/components/ui/form";
 
 export default function ConsultantProfilePage() {
-  const { data: profile, refetch } = trpc.consultant.getMyProfile.useQuery();
-  const { data: specializations } = trpc.specialization.list.useQuery({ isActive: true });
+  const { data: profile } = trpc.consultant.getMyProfile.useQuery();
 
-  const [form, setForm] = useState({ bio: "", sessionPrice: 0, city: "", yearsOfExperience: 0, academicQualification: "", certifications: [] as string[], specializationIds: [] as string[] });
-  const [certInput, setCertInput] = useState("");
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (profile) {
-      setForm({
-        bio: profile.bio ?? "",
-        sessionPrice: Number(profile.sessionPrice),
-        city: profile.city ?? "",
-        yearsOfExperience: profile.yearsOfExperience,
-        academicQualification: profile.academicQualification ?? "",
-        certifications: profile.certifications,
-        specializationIds: profile.specializations.map((s) => s.specializationId),
-      });
-    }
-  }, [profile]);
-
-  const updateMutation = trpc.consultant.updateMyProfile.useMutation({
-    onSuccess: () => { refetch(); setSaved(true); setTimeout(() => setSaved(false), 3000); },
-  });
-
-  const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
-
-  const toggleSpec = (id: string) =>
-    set("specializationIds", form.specializationIds.includes(id)
-      ? form.specializationIds.filter((s) => s !== id)
-      : [...form.specializationIds, id]);
-
-  const addCert = () => {
-    if (!certInput.trim()) return;
-    set("certifications", [...form.certifications, certInput.trim()]);
-    setCertInput("");
-  };
+  if (!profile) {
+    return (
+      <div className="flex justify-center py-20">
+        <div className="w-6 h-6 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-2xl">
-      <PageHeader title="ملفي الشخصي" />
+    <div dir="rtl" className="max-w-2xl">
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-xs text-gray-400">للتعديل تواصل مع الإدارة</p>
+        <h1 className="text-xl font-bold text-gray-900">ملفي الشخصي</h1>
+      </div>
 
-      {saved && <div className="mb-4 p-3 bg-emerald-50 text-emerald-700 rounded-xl text-sm">✅ تم حفظ التعديلات</div>}
-
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-5">
-        <Textarea label="نبذة تعريفية" value={form.bio} onChange={(e) => set("bio", e.target.value)} rows={5} />
-
-        <div className="grid grid-cols-2 gap-4">
-          <Input label="المدينة" value={form.city} onChange={(e) => set("city", e.target.value)} />
-          <Input label="سنوات الخبرة" type="number" value={form.yearsOfExperience} onChange={(e) => set("yearsOfExperience", +e.target.value)} />
+      {/* Avatar + name */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-2xl font-bold text-indigo-600 flex-shrink-0">
+          {profile.user?.name?.[0] ?? "؟"}
         </div>
-
-        <Input label="سعر الجلسة (ر.س)" type="number" value={form.sessionPrice} onChange={(e) => set("sessionPrice", +e.target.value)} />
-        <Input label="المؤهل الأكاديمي" value={form.academicQualification} onChange={(e) => set("academicQualification", e.target.value)} />
-
-        {/* Certs */}
         <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">الدورات والشهادات</label>
-          <div className="flex gap-2 mb-2">
-            <input value={certInput} onChange={(e) => setCertInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addCert()}
-              placeholder="اسم الدورة / الشهادة"
-              className="flex-1 px-4 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400" />
-            <Button size="sm" type="button" onClick={addCert}>إضافة</Button>
+          <h2 className="text-lg font-bold text-gray-900">{profile.user?.name}</h2>
+          <p className="text-sm text-gray-400">{profile.user?.email}</p>
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-amber-400 text-sm">★</span>
+            <span className="text-sm font-semibold text-gray-700">{Number(profile.rating).toFixed(1)}</span>
+            <span className="text-xs text-gray-400">({profile.totalReviews} تقييم)</span>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {form.certifications.map((c, i) => (
-              <span key={i} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs">
-                {c}
-                <button onClick={() => set("certifications", form.certifications.filter((_, j) => j !== i))} className="hover:text-rose-500">✕</button>
+        </div>
+      </div>
+
+      {/* Info grid */}
+      <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50 mb-4">
+        {[
+          { label: "سعر الجلسة", value: `${Number(profile.sessionPrice).toLocaleString("ar")} د.ع` },
+          { label: "المدينة", value: profile.city ?? "—" },
+          { label: "سنوات الخبرة", value: `${profile.yearsOfExperience} سنة` },
+          { label: "المؤهل الأكاديمي", value: profile.academicQualification ?? "—" },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center justify-between px-5 py-3.5">
+            <span className="text-sm text-gray-800 font-medium">{item.value}</span>
+            <span className="text-sm text-gray-400">{item.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Bio */}
+      {profile.bio && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <p className="text-sm font-semibold text-gray-400 mb-2 text-right">النبذة التعريفية</p>
+          <p className="text-sm text-gray-700 leading-relaxed text-right">{profile.bio}</p>
+        </div>
+      )}
+
+      {/* Specializations */}
+      {profile.specializations.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <p className="text-sm font-semibold text-gray-400 mb-3 text-right">التخصصات</p>
+          <div className="flex flex-wrap gap-2 justify-end">
+            {profile.specializations.map((s) => (
+              <span key={s.specializationId} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-medium">
+                {s.specialization.nameAr}
               </span>
             ))}
           </div>
         </div>
+      )}
 
-        {/* Specializations */}
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-2">التخصصات</label>
-          <div className="flex flex-wrap gap-2">
-            {specializations?.map((s) => {
-              const selected = form.specializationIds.includes(s.id);
-              return (
-                <button key={s.id} type="button" onClick={() => toggleSpec(s.id)}
-                  className={`px-3 py-1.5 rounded-xl text-sm border transition-colors ${selected ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-indigo-300"}`}>
-                  {s.nameAr}
-                </button>
-              );
-            })}
+      {/* Certifications */}
+      {profile.certifications.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <p className="text-sm font-semibold text-gray-400 mb-3 text-right">الشهادات والدورات</p>
+          <div className="space-y-2">
+            {profile.certifications.map((c, i) => (
+              <div key={i} className="flex items-center gap-2 justify-end">
+                <span className="text-sm text-gray-700">{c}</span>
+                <span className="text-indigo-400">🏅</span>
+              </div>
+            ))}
           </div>
         </div>
-
-        <div className="flex justify-end pt-4 border-t">
-          <Button onClick={() => updateMutation.mutate(form)} loading={updateMutation.isPending}>حفظ التعديلات</Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

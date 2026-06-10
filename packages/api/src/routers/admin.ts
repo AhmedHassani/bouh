@@ -51,6 +51,22 @@ export const adminRouter = createTRPCRouter({
       _count: { id: true },
     });
 
+    // Breakdown by payment method
+    const appointmentsByPayment = await db.appointment.groupBy({
+      by: ["paymentMethod"],
+      _count: { id: true },
+    });
+
+    // Package stats
+    const [packageRevenue, totalPackagesSold, activePackages] = await Promise.all([
+      db.userPackage.aggregate({
+        _sum: { pricePaid: true },
+        where: { paymentStatus: "PAID" },
+      }),
+      db.userPackage.count({ where: { paymentStatus: "PAID" } }),
+      db.package.count({ where: { isActive: true } }),
+    ]);
+
     return {
       stats: {
         totalClients,
@@ -59,9 +75,15 @@ export const adminRouter = createTRPCRouter({
         completedAppointments,
         totalRevenue: Number(earningsTotals._sum.grossAmount ?? 0),
         totalCommissions: Number(earningsTotals._sum.commissionAmount ?? 0),
+        packageRevenue: Number(packageRevenue._sum.pricePaid ?? 0),
+        totalPackagesSold,
+        activePackages,
       },
       appointmentsByStatus: Object.fromEntries(
         appointmentsByStatus.map((s) => [s.status, s._count.id]),
+      ),
+      appointmentsByPayment: Object.fromEntries(
+        appointmentsByPayment.map((s) => [s.paymentMethod, s._count.id]),
       ),
       popularSpecializations,
       recentAppointments,

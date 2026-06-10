@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/consultants", label: "المستشارون", icon: "👩‍⚕️" },
   { href: "/admin/specializations", label: "التخصصات", icon: "🧠" },
   { href: "/admin/coupons", label: "الكوبونات", icon: "🎟️" },
+  { href: "/admin/packages", label: "الباقات", icon: "📦" },
   { href: "/admin/assessments", label: "الاختبارات النفسية", icon: "📋" },
   { href: "/admin/settings", label: "إعدادات المنصة", icon: "⚙️" },
 ];

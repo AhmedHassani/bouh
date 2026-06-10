@@ -61,7 +61,7 @@ export default function MyAppointmentsPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   {appointmentStatusBadge(appt.status)}
-                  <p className="font-bold text-indigo-600">{Number(appt.finalPrice)} ر.س</p>
+                  <p className="font-bold text-indigo-600">{Number(appt.finalPrice)} د.ع</p>
                 </div>
               </div>
 

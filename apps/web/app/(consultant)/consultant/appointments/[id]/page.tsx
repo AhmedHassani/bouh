@@ -66,12 +66,12 @@ export default function AppointmentDetailPage({ params }: { params: Promise<{ id
                 appointment.paymentStatus === "PENDING" ? "⏳ قيد الانتظار" :
                 appointment.paymentStatus === "REFUNDED" ? "↩️ مسترجع" : "❌ فشل"
               } />
-              <Row label="السعر الأصلي" value={`${Number(appointment.originalPrice)} ر.س`} />
+              <Row label="السعر الأصلي" value={`${Number(appointment.originalPrice)} د.ع`} />
               {Number(appointment.discountAmount) > 0 && (
-                <Row label="الخصم" value={`-${Number(appointment.discountAmount)} ر.س`} />
+                <Row label="الخصم" value={`-${Number(appointment.discountAmount)} د.ع`} />
               )}
               <Row label="الإجمالي" value={
-                <span className="font-bold text-indigo-600">{Number(appointment.finalPrice)} ر.س</span>
+                <span className="font-bold text-indigo-600">{Number(appointment.finalPrice)} د.ع</span>
               } />
               {appointment.meetingLink && (
                 <Row label="رابط الجلسة" value={

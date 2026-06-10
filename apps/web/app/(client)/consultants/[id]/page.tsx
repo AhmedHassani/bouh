@@ -46,7 +46,15 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"REPRESENTATIVE" | "ELECTRONIC" | "">("");
+  const [paymentMethod, setPaymentMethod] = useState<"REPRESENTATIVE" | "ELECTRONIC" | "PACKAGE" | "">("");
+  const [selectedPkgId, setSelectedPkgId] = useState<string>("");
+
+  // Fetch user's active packages with remaining sessions
+  const { data: myPackages } = trpc.package.myPackages.useQuery(
+    { anonUserId: identity?.anonUserId ?? "" },
+    { enabled: !!identity?.anonUserId },
+  );
+  const availablePackages = myPackages?.filter((p) => p.totalSessions - p.usedSessions > 0) ?? [];
   const [notes, setNotes] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState<{ discount: number; code: string } | null>(null);
@@ -63,8 +71,23 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
     { enabled: couponCode.length >= 3 }
   );
 
+  const startZainCash = trpc.anonymous.startZainCashPayment.useMutation({
+    onSuccess: (data) => {
+      // Redirect to ZainCash payment page
+      window.location.href = data.paymentUrl;
+    },
+    onError: (err) => {
+      setBookingError(`فشل بدء الدفع: ${err.message}`);
+    },
+  });
+
   const createBooking = trpc.anonymous.createAppointment.useMutation({
-    onSuccess: () => {
+    onSuccess: (appt) => {
+      // If electronic payment, immediately redirect to ZainCash
+      if (paymentMethod === "ELECTRONIC" && identity?.anonUserId) {
+        startZainCash.mutate({ appointmentId: appt.id, anonUserId: identity.anonUserId });
+        return;
+      }
       setBookingSuccess(true);
     },
     onError: (err) => {
@@ -112,12 +135,17 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
 
   async function handleBook() {
     if (!identity?.anonUserId || !canBook) return;
+    if (paymentMethod === "PACKAGE" && !selectedPkgId) {
+      setBookingError("اختر باقة من القائمة");
+      return;
+    }
     setBookingError("");
     createBooking.mutate({
       anonUserId: identity.anonUserId,
       consultantId: id,
       scheduledAt: selectedSlot,
-      paymentMethod: paymentMethod as "REPRESENTATIVE" | "ELECTRONIC",
+      paymentMethod: paymentMethod as "REPRESENTATIVE" | "ELECTRONIC" | "PACKAGE",
+      userPackageId: paymentMethod === "PACKAGE" ? selectedPkgId : undefined,
       notes: notes || undefined,
       couponCode: couponApplied?.code,
       assessmentResultId: identity.assessmentResultId ?? undefined,
@@ -232,7 +260,7 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
           <div>
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm sticky top-6">
               <p className="text-gray-500 text-sm mb-1">سعر الجلسة</p>
-              <p className="text-3xl font-bold text-indigo-600 mb-4">{Number(consultant.sessionPrice)} ر.س</p>
+              <p className="text-3xl font-bold text-indigo-600 mb-4">{Number(consultant.sessionPrice)} د.ع</p>
               <div className="space-y-2 text-sm text-gray-600 mb-6">
                 <div className="flex items-center gap-2"><span>📅</span> جلسة مدتها 60 دقيقة</div>
                 <div className="flex items-center gap-2"><span>🔒</span> جلسة سرية وآمنة</div>
@@ -329,6 +357,48 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
             {selectedSlot && (
               <div>
                 <p className="text-sm font-semibold text-gray-700 mb-2">💳 طريقة الدفع</p>
+                <div className="space-y-2 mb-3">
+                  {/* PACKAGE option — only if user has active packages */}
+                  {availablePackages.length > 0 && (
+                    <div className={`rounded-2xl border-2 transition-all ${
+                      paymentMethod === "PACKAGE" ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:border-emerald-200"
+                    }`}>
+                      <button
+                        onClick={() => { setPaymentMethod("PACKAGE"); if (!selectedPkgId) setSelectedPkgId(availablePackages[0].id); }}
+                        className="w-full p-4 text-right"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-emerald-600 font-bold bg-emerald-100 rounded-lg px-2 py-0.5">مجاناً</span>
+                          <div>
+                            <p className="font-semibold text-gray-800 text-sm flex items-center gap-1.5 justify-end">
+                              <span>استخدم باقة</span> <span className="text-xl">💎</span>
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{availablePackages.length} باقة نشطة</p>
+                          </div>
+                        </div>
+                      </button>
+                      {paymentMethod === "PACKAGE" && (
+                        <div className="border-t border-emerald-100 p-3 space-y-1.5">
+                          {availablePackages.map((p) => {
+                            const remaining = p.totalSessions - p.usedSessions;
+                            return (
+                              <button key={p.id} onClick={() => setSelectedPkgId(p.id)}
+                                className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-right transition-colors ${
+                                  selectedPkgId === p.id ? "bg-emerald-100" : "bg-white hover:bg-emerald-50"
+                                }`}>
+                                <span className="text-xs text-emerald-700 font-bold">{remaining} متبقي</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium text-gray-800">{p.package.nameAr}</span>
+                                  <span className="text-base">{p.package.icon ?? "📦"}</span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setPaymentMethod("ELECTRONIC")}
@@ -391,7 +461,7 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
                     <p className="text-xs text-rose-500 mt-1">الكوبون غير صالح أو منتهي</p>
                   )}
                   {couponApplied && (
-                    <p className="text-xs text-emerald-600 mt-1">✅ خصم {couponApplied.discount} ر.س مطبّق</p>
+                    <p className="text-xs text-emerald-600 mt-1">✅ خصم {couponApplied.discount} د.ع مطبّق</p>
                   )}
                 </div>
 
@@ -399,17 +469,17 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
                 <div className="bg-gray-50 rounded-xl p-4 text-sm">
                   <div className="flex justify-between mb-1">
                     <span className="text-gray-500">سعر الجلسة</span>
-                    <span>{sessionPrice} ر.س</span>
+                    <span>{sessionPrice} د.ع</span>
                   </div>
                   {couponApplied && (
                     <div className="flex justify-between mb-1 text-emerald-600">
                       <span>خصم الكوبون</span>
-                      <span>-{discount} ر.س</span>
+                      <span>-{discount} د.ع</span>
                     </div>
                   )}
                   <div className="flex justify-between font-bold text-base pt-2 border-t border-gray-100">
                     <span>الإجمالي</span>
-                    <span className="text-indigo-600">{finalPrice} ر.س</span>
+                    <span className="text-indigo-600">{finalPrice} د.ع</span>
                   </div>
                 </div>
               </>
@@ -426,7 +496,7 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
                 loading={createBooking.isPending}
                 disabled={!canBook}
               >
-                تأكيد الحجز ({finalPrice} ر.س)
+                تأكيد الحجز ({finalPrice} د.ع)
               </Button>
             </div>
           </div>

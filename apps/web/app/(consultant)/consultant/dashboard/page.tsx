@@ -1,86 +1,143 @@
 "use client";
 
+import Link from "next/link";
 import { trpc } from "@/lib/trpc/client";
-import { StatsCard } from "@/components/ui/stats-card";
-import { PageHeader } from "@/components/ui/page-header";
-import { appointmentStatusBadge } from "@/components/ui/badge";
+
+function formatDate(d: string | Date) {
+  return new Intl.DateTimeFormat("ar-IQ", {
+    weekday: "short", day: "numeric", month: "long",
+    hour: "2-digit", minute: "2-digit",
+  }).format(new Date(d));
+}
+
+const STATUS_STYLE: Record<string, { label: string; class: string }> = {
+  PENDING:   { label: "معلّق",   class: "bg-amber-50 text-amber-700"   },
+  CONFIRMED: { label: "مؤكد",    class: "bg-emerald-50 text-emerald-700" },
+  COMPLETED: { label: "مكتمل",   class: "bg-gray-50 text-gray-500"     },
+  CANCELLED: { label: "ملغي",    class: "bg-red-50 text-red-500"       },
+  NO_SHOW:   { label: "لم يحضر", class: "bg-orange-50 text-orange-600" },
+};
 
 export default function ConsultantDashboard() {
   const { data: earnings } = trpc.earning.myEarnings.useQuery();
-  const { data: upcoming } = trpc.appointment.myAppointments.useQuery({ status: "CONFIRMED", limit: 5 });
-  const { data: profile } = trpc.consultant.getMyProfile.useQuery();
+  const { data: upcoming  } = trpc.appointment.myAppointments.useQuery({ status: "CONFIRMED", limit: 5 });
+  const { data: allAppts  } = trpc.appointment.myAppointments.useQuery({ limit: 1 }); // for total count
+  const { data: profile   } = trpc.consultant.getMyProfile.useQuery();
+
+  const totalSessions  = allAppts?.total ?? 0;
+  const upcomingCount  = upcoming?.total ?? 0;
+  const grossRevenue   = earnings?.totals.gross ?? 0;
+  const netRevenue     = earnings?.totals.net ?? 0;
+
+  const stats = [
+    { label: "إجمالي الجلسات",   value: totalSessions,                                     icon: "📅", sub: "كل الحالات"    },
+    { label: "المواعيد القادمة", value: upcomingCount,                                      icon: "⏰", sub: "مؤكدة فقط"    },
+    { label: "إجمالي الإيرادات", value: `${grossRevenue.toLocaleString("ar")} د.ع`,         icon: "💰", sub: "قبل العمولة"  },
+    { label: "صافي الأرباح",     value: `${netRevenue.toLocaleString("ar")} د.ع`,           icon: "✅", sub: "بعد العمولة"  },
+  ];
 
   return (
-    <div>
-      <PageHeader title={`مرحباً، ${profile?.user?.name ?? "المستشار"}`} subtitle="نظرة عامة على نشاطك" />
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatsCard title="إجمالي الجلسات" value={earnings?.totals.sessions ?? 0} icon="📅" color="indigo" />
-        <StatsCard title="إجمالي الإيرادات" value={`${(earnings?.totals.gross ?? 0).toLocaleString("ar")} ر.س`} icon="💰" color="amber" />
-        <StatsCard title="عمولة المنصة" value={`${(earnings?.totals.commission ?? 0).toLocaleString("ar")} ر.س`} icon="📈" color="rose" />
-        <StatsCard title="صافي الأرباح" value={`${(earnings?.totals.net ?? 0).toLocaleString("ar")} ر.س`} icon="✅" color="emerald" />
+    <div dir="rtl">
+      {/* Welcome */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-extrabold text-gray-900">
+          مرحباً، {profile?.user?.name ?? "المستشار"} 👋
+        </h1>
+        <p className="text-sm text-gray-400 mt-1">نظرة عامة على نشاطك</p>
       </div>
 
-      {/* Profile info */}
-      {profile && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-800 mb-4">ملفي المهني</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">سعر الجلسة</span>
-                <span className="font-medium">{Number(profile.sessionPrice)} ر.س</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">التقييم</span>
-                <span className="font-medium">⭐ {Number(profile.rating).toFixed(1)} ({profile.totalReviews} تقييم)</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">سنوات الخبرة</span>
-                <span className="font-medium">{profile.yearsOfExperience} سنة</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">المدينة</span>
-                <span className="font-medium">{profile.city ?? "-"}</span>
-              </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+        {stats.map((s) => (
+          <div key={s.label} className="bg-white rounded-2xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-gray-400 bg-gray-50 rounded-lg px-2 py-1">{s.sub}</span>
+              <span className="text-2xl">{s.icon}</span>
             </div>
+            <p className="text-2xl font-extrabold text-gray-900">{s.value}</p>
+            <p className="text-xs text-gray-400 mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Upcoming appointments */}
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+            <Link href="/consultant/appointments" className="text-xs text-indigo-600 font-medium hover:underline">
+              عرض الكل
+            </Link>
+            <h2 className="font-bold text-gray-800 text-sm">المواعيد القادمة</h2>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-            <h3 className="font-semibold text-gray-800 mb-4">التخصصات</h3>
-            <div className="flex flex-wrap gap-2">
-              {profile.specializations.map((s) => (
-                <span key={s.specializationId} className="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-xl text-sm font-medium">
-                  {s.specialization.nameAr}
-                </span>
-              ))}
-              {profile.specializations.length === 0 && <p className="text-sm text-gray-400">لا توجد تخصصات</p>}
+          {upcoming?.data && upcoming.data.length > 0 ? (
+            <div className="divide-y divide-gray-50">
+              {upcoming.data.map((appt) => {
+                const s = STATUS_STYLE[appt.status];
+                return (
+                  <div key={appt.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-lg ${s.class}`}>{s.label}</span>
+                      <span className="text-sm font-semibold text-gray-700">
+                        {Number(appt.finalPrice).toLocaleString("ar")} د.ع
+                      </span>
+                    </div>
+                    <div className="text-right min-w-0">
+                      <p className="font-semibold text-gray-800 text-sm truncate">
+                        {appt.client?.user.name ?? appt.anonUser?.nickname ?? "مجهول"}
+                      </p>
+                      <p className="text-xs text-gray-400">{formatDate(appt.scheduledAt)}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <div className="py-12 text-center text-gray-300">
+              <p className="text-3xl mb-2">📅</p>
+              <p className="text-sm">لا توجد مواعيد قادمة</p>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Upcoming appointments */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
-        <h3 className="font-semibold text-gray-800 mb-4">المواعيد القادمة</h3>
-        {upcoming?.data && upcoming.data.length > 0 ? (
-          <div className="space-y-3">
-            {upcoming.data.map((appt) => (
-              <div key={appt.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                <div>
-                  <p className="font-medium text-gray-800 text-sm">{appt.client?.user.name ?? appt.anonUser?.nickname ?? "مجهول"}</p>
-                  <p className="text-xs text-gray-400">{new Date(appt.scheduledAt).toLocaleString("ar-SA")}</p>
+        {/* Profile summary */}
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+            <Link href="/consultant/profile" className="text-xs text-indigo-600 font-medium hover:underline">
+              عرض الملف
+            </Link>
+            <h2 className="font-bold text-gray-800 text-sm">ملفي المهني</h2>
+          </div>
+          {profile ? (
+            <div className="divide-y divide-gray-50">
+              {[
+                { label: "سعر الجلسة", value: `${Number(profile.sessionPrice).toLocaleString("ar")} د.ع` },
+                { label: "التقييم",    value: `⭐ ${Number(profile.rating).toFixed(1)} (${profile.totalReviews} تقييم)` },
+                { label: "الخبرة",     value: `${profile.yearsOfExperience} سنة` },
+                { label: "المدينة",    value: profile.city ?? "—" },
+              ].map((item) => (
+                <div key={item.label} className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm font-medium text-gray-700">{item.value}</span>
+                  <span className="text-xs text-gray-400">{item.label}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700">{Number(appt.finalPrice)} ر.س</span>
-                  {appointmentStatusBadge(appt.status)}
+              ))}
+              <div className="px-5 py-3">
+                <p className="text-xs text-gray-400 mb-2 text-right">التخصصات</p>
+                <div className="flex flex-wrap gap-1.5 justify-end">
+                  {profile.specializations.map((s) => (
+                    <span key={s.specializationId} className="text-xs bg-indigo-50 text-indigo-600 px-2.5 py-1 rounded-lg font-medium">
+                      {s.specialization.nameAr}
+                    </span>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-400 text-center py-6">لا توجد مواعيد قادمة</p>
-        )}
+            </div>
+          ) : (
+            <div className="py-10 flex justify-center">
+              <div className="w-5 h-5 border-2 border-indigo-200 border-t-indigo-500 rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -34,8 +34,15 @@ export default function ConsultantDetailPage({ params }: { params: Promise<{ id:
     }
   }, [consultant]);
 
-  const updateMutation = trpc.consultant.update.useMutation({ onSuccess: () => refetch() });
-  const toggleActive = trpc.consultant.toggleActive.useMutation({ onSuccess: () => refetch() });
+  const updateMutation  = trpc.consultant.update.useMutation({ onSuccess: () => refetch() });
+  const toggleActive    = trpc.consultant.toggleActive.useMutation({ onSuccess: () => refetch() });
+  const resetPassword   = trpc.auth.resetPassword.useMutation({ onSuccess: () => { setNewPassword(""); setPasswordMsg("✅ تم تغيير كلمة المرور"); } });
+  const updateEmail     = trpc.auth.updateEmail.useMutation({ onSuccess: () => { refetch(); setEmailMsg("✅ تم تحديث البريد الإلكتروني"); } });
+
+  const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail]       = useState("");
+  const [passwordMsg, setPasswordMsg] = useState("");
+  const [emailMsg, setEmailMsg]       = useState("");
 
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
   const toggleSpec = (sid: string) =>
@@ -68,7 +75,7 @@ export default function ConsultantDetailPage({ params }: { params: Promise<{ id:
       <div className="grid grid-cols-3 gap-4 mb-6">
         <StatsCard title="الجلسات" value={consultant._count.appointments} icon="📅" color="indigo" />
         <StatsCard title="التقييمات" value={`⭐ ${Number(consultant.rating).toFixed(1)}`} icon="⭐" color="amber" />
-        <StatsCard title="سعر الجلسة" value={`${Number(consultant.sessionPrice)} ر.س`} icon="💰" color="emerald" />
+        <StatsCard title="سعر الجلسة" value={`${Number(consultant.sessionPrice)} د.ع`} icon="💰" color="emerald" />
       </div>
 
       {/* Edit Form */}
@@ -83,7 +90,7 @@ export default function ConsultantDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <Input label="سعر الجلسة (ر.س)" type="number" value={form.sessionPrice} onChange={(e) => set("sessionPrice", +e.target.value)} />
+          <Input label="سعر الجلسة (د.ع)" type="number" value={form.sessionPrice} onChange={(e) => set("sessionPrice", +e.target.value)} />
           <Input label="نسبة العمولة" type="number" step="0.01" value={form.commissionRate} onChange={(e) => set("commissionRate", +e.target.value)} />
         </div>
 
@@ -113,6 +120,63 @@ export default function ConsultantDetailPage({ params }: { params: Promise<{ id:
           >
             حفظ التعديلات
           </Button>
+        </div>
+      </div>
+
+      {/* ── Account Security ── */}
+      <div className="mt-5 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+        <h3 className="font-semibold text-gray-700 text-sm border-b pb-3 mb-5">إعدادات الحساب</h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Update Email */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1">تحديث البريد الإلكتروني</p>
+            <p className="text-xs text-gray-400 mb-3">البريد الحالي: <span className="font-medium text-gray-600">{consultant.user.email}</span></p>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => { setNewEmail(e.target.value); setEmailMsg(""); }}
+                placeholder="البريد الجديد"
+                dir="ltr"
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition"
+              />
+              <button
+                onClick={() => updateEmail.mutate({ userId: consultant.user.id, email: newEmail })}
+                disabled={!newEmail.includes("@") || updateEmail.isPending}
+                className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+              >
+                {updateEmail.isPending ? "..." : "تحديث"}
+              </button>
+            </div>
+            {emailMsg && <p className="text-xs text-emerald-600 mt-2">{emailMsg}</p>}
+            {updateEmail.error && <p className="text-xs text-red-500 mt-2">{updateEmail.error.message}</p>}
+          </div>
+
+          {/* Reset Password */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1">إعادة تعيين كلمة المرور</p>
+            <p className="text-xs text-gray-400 mb-3">سيتم إنهاء جميع الجلسات الحالية</p>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => { setNewPassword(e.target.value); setPasswordMsg(""); }}
+                placeholder="كلمة المرور الجديدة"
+                dir="ltr"
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition"
+              />
+              <button
+                onClick={() => resetPassword.mutate({ userId: consultant.user.id, newPassword })}
+                disabled={newPassword.length < 6 || resetPassword.isPending}
+                className="px-4 py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 disabled:opacity-40 transition-colors whitespace-nowrap"
+              >
+                {resetPassword.isPending ? "..." : "إعادة تعيين"}
+              </button>
+            </div>
+            {passwordMsg && <p className="text-xs text-emerald-600 mt-2">{passwordMsg}</p>}
+            {resetPassword.error && <p className="text-xs text-red-500 mt-2">{resetPassword.error.message}</p>}
+          </div>
         </div>
       </div>
 
