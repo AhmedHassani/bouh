@@ -168,7 +168,7 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
     return <div className="min-h-screen flex items-center justify-center text-gray-400">المستشار غير موجود</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="min-h-screen" dir="rtl">
       {/* Top nav */}
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">

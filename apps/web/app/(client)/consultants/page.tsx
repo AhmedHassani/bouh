@@ -73,7 +73,7 @@ function ClientDashboard() {
   function switchTab(t: Tab) { setTab(t); setSpecFilter(null); }
 
   return (
-    <div className="min-h-screen bg-[#f4f5f7]" dir="rtl">
+    <div className="min-h-screen" dir="rtl">
 
       {/* ── TOP BAR ── */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-30">

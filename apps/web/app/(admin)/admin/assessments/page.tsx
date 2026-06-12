@@ -20,9 +20,11 @@ export default function AssessmentsPage() {
 
   const addQuestion = trpc.assessment.addQuestion.useMutation({
     onSuccess: () => { refetch(); refetchDetail(); setAdding(false); },
+    onError:   (e) => alert(`فشل الحفظ: ${e.message}`),
   });
   const deleteQuestion = trpc.assessment.deleteQuestion.useMutation({
     onSuccess: () => { refetch(); refetchDetail(); },
+    onError:   (e) => alert(`فشل الحذف: ${e.message}`),
   });
 
   function startEdit(q: NonNullable<typeof detail>["questions"][0]) {

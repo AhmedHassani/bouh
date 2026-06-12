@@ -40,7 +40,7 @@ export default function ConsultantLayout({ children }: { children: React.ReactNo
   const { user } = useAuthStore();
 
   return (
-    <div className="flex min-h-screen bg-gray-50" dir="rtl">
+    <div className="flex min-h-screen" dir="rtl">
       <Sidebar
         items={navItems}
         title="مساحة بوح"

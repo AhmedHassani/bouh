@@ -25,7 +25,7 @@ export default function MyAppointmentsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50" dir="rtl">
+    <div className="min-h-screen" dir="rtl">
       <div className="bg-white border-b border-gray-100 px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/" className="text-xl font-bold text-indigo-600">مساحة بوح</Link>

@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   });
 
   return (
-    <div className="flex min-h-screen bg-gray-50" dir="rtl">
+    <div className="flex min-h-screen" dir="rtl">
       <Sidebar
         items={navItems}
         title="مساحة بوح"
