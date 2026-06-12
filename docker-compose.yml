@@ -1,35 +1,41 @@
 services:
-  db:
-    image: postgres:16-alpine
-    container_name: misahuh-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER:     ${POSTGRES_USER:-misahuh}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB:       ${POSTGRES_DB:-misahuh}
-    volumes:
-      - db-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-misahuh} -d ${POSTGRES_DB:-misahuh}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   web:
-    image: ghcr.io/ahmedhassani/bouh-web:latest
-    container_name: misahuh-web
-    restart: unless-stopped
-    pull_policy: always
+    image: ghcr.io/ahmedhassani/bouh/web:latest
+    container_name: bouh-web
+    restart: always
+    ports:
+      - "80:3000"
     depends_on:
       db:
         condition: service_healthy
     env_file:
       - .env
+    networks:
+      - bouh-network
+
+  db:
+    image: postgres:16-alpine
+    container_name: bouh-db
+    restart: always
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-misahuh}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-misahuh}
-      NODE_ENV: production
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres_password}
+      POSTGRES_DB: ${POSTGRES_DB:-bouh}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     ports:
-      - "80:3000"
+      - "5432:5432" # Exposed to make manual connections easier (can be removed for production safety)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bouh"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bouh-network
 
 volumes:
-  db-data:
+  postgres_data:
+
+networks:
+  bouh-network:
+    driver: bridge
