@@ -50,12 +50,8 @@ COPY --from=build /repo/apps/web/public ./apps/web/public
 # Prisma schema (for `prisma migrate deploy` at startup)
 COPY --from=build /repo/packages/db/prisma ./packages/db/prisma
 
-# The generated Prisma client lives inside packages/db/node_modules/.prisma
-# (because pnpm hoists). Copy both possible locations to be safe — the
-# standalone tracing doesn't always pick up the engine binary.
-COPY --from=build /repo/node_modules/.prisma /app/node_modules/.prisma
-COPY --from=build /repo/packages/db/node_modules/.prisma /app/packages/db/node_modules/.prisma
-COPY --from=build /repo/apps/web/node_modules/.prisma /app/apps/web/node_modules/.prisma
+# Next.js standalone tracing already copies @prisma/client + its engine into
+# /app/node_modules/.pnpm/@prisma+client*/. No extra COPY needed.
 
 # Entrypoint runs migrations then starts the server
 COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
