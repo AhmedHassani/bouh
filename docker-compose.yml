@@ -1,6 +1,8 @@
 services:
   web:
-    image: ghcr.io/ahmedhassani/bouh/web:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: bouh-web
     restart: always
     ports:
@@ -24,7 +26,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5432:5432" # Exposed to make manual connections easier (can be removed for production safety)
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d bouh"]
       interval: 5s
