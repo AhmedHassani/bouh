@@ -1,5 +1,5 @@
 FROM node:20-alpine
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 WORKDIR /app
 
 # Configure pnpm store location
