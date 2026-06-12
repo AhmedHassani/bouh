@@ -1,5 +1,6 @@
 services:
   web:
+    image: ghcr.io/ahmedhassani/bouh-web:latest
     build:
       context: .
       dockerfile: Dockerfile
