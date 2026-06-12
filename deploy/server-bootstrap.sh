@@ -70,10 +70,14 @@ chmod +x "$PULL_SCRIPT"
 
 echo "→ Installing cron job (runs every minute)"
 CRON="* * * * * $PULL_SCRIPT >> /var/log/misahuh-deploy.log 2>&1"
-( crontab -l 2>/dev/null | grep -v misahuh-pull.sh ; echo "$CRON" ) | crontab -
+TMP=$(mktemp)
+(crontab -l 2>/dev/null || true) | grep -v misahuh-pull.sh > "$TMP" || true
+echo "$CRON" >> "$TMP"
+crontab "$TMP"
+rm -f "$TMP"
 
-echo "→ First pull + start"
-"$PULL_SCRIPT"
+echo "→ First pull + start (image may not exist yet — see note below)"
+"$PULL_SCRIPT" || echo "  (skipped — will retry every minute via cron)"
 
 IP=$(hostname -I | awk '{print $1}')
 echo ""
