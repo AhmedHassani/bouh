@@ -68,7 +68,7 @@ export default function AssessmentWizard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center ">
         <div className="text-center">
           <div className="text-4xl mb-4 animate-pulse">🧠</div>
           <p className="text-gray-500">جارٍ تحميل الأسئلة...</p>
@@ -137,7 +137,7 @@ export default function AssessmentWizard() {
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex flex-col" dir="rtl">
+    <main className="min-h-screen  flex flex-col" dir="rtl">
       {/* Header */}
       <div className="px-6 py-4 flex items-center justify-between max-w-2xl mx-auto w-full">
         <button onClick={() => router.push("/")} className="text-gray-400 hover:text-gray-600 text-sm">

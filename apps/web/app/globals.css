@@ -49,6 +49,17 @@ input::placeholder, textarea::placeholder { color: #8a8d96 !important; }
 
 /* Indigo buttons stay vivid (no override needed for bg-indigo-600/700) */
 
+/* Kill any leftover light gradient backgrounds anywhere */
+[class*="from-white"],
+[class*="via-white"],
+[class*="to-white"],
+[class*="from-indigo-50"],
+[class*="via-indigo-50"],
+[class*="from-purple-50"],
+[class*="to-purple-50"] {
+  background-image: none !important;
+}
+
 /* ── Tiptap editor base styles ── */
 .ProseMirror {
   outline: none;
