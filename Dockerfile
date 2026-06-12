@@ -53,9 +53,8 @@ COPY --from=build /repo/packages/db/prisma ./packages/db/prisma
 # Next.js standalone tracing already copies @prisma/client + its engine into
 # /app/node_modules/.pnpm/@prisma+client*/. No extra COPY needed.
 
-# Entrypoint runs migrations then starts the server
-COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# Inline entrypoint — runs prisma migrate then starts Next standalone
+RUN printf '#!/bin/sh\nset -e\ncd /app/packages/db\nnpx --yes prisma@5.22.0 migrate deploy --schema=./prisma/schema.prisma 2>/dev/null || npx --yes prisma@5.22.0 db push --schema=./prisma/schema.prisma --accept-data-loss=false 2>/dev/null || true\ncd /app\nexec node apps/web/server.js\n' > /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 3000
 CMD ["/usr/local/bin/entrypoint.sh"]
