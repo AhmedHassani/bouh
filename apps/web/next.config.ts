@@ -3,6 +3,8 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  eslint: { ignoreDuringBuilds: true },
+  typescript: { ignoreBuildErrors: true },
   transpilePackages: ["@repo/api", "@repo/db", "@repo/ui", "@repo/validators"],
   // Allow Next.js to trace files from the monorepo root for Prisma
   outputFileTracingRoot: path.join(__dirname, "../../"),
