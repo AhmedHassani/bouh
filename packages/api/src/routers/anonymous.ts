@@ -40,11 +40,26 @@ export const anonymousRouter = createTRPCRouter({
   getOrCreate: publicProcedure
     .input(getOrCreateAnonUserSchema)
     .mutation(async ({ ctx, input }) => {
+      // 1) Exact match on (deviceId, nickname) — fast path
       const existing = await db.anonymousUser.findUnique({
         where: { deviceId_nickname: { deviceId: input.deviceId, nickname: input.nickname } },
       });
       if (existing) return existing;
 
+      // 2) Legacy claim — if any record has the same nickname AND a deviceId
+      //    that starts with "legacy-" (i.e. seeded from the old system),
+      //    attach this device to it. One-time migration per legacy account.
+      const legacy = await db.anonymousUser.findFirst({
+        where: { nickname: input.nickname, deviceId: { startsWith: "legacy-" } },
+      });
+      if (legacy) {
+        return db.anonymousUser.update({
+          where: { id: legacy.id },
+          data:  { deviceId: input.deviceId },
+        });
+      }
+
+      // 3) Otherwise, create a new anon user
       return db.anonymousUser.create({
         data: { deviceId: input.deviceId, nickname: input.nickname },
       });
