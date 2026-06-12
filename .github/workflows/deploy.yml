@@ -31,11 +31,11 @@ jobs:
             export DEBIAN_FRONTEND=noninteractive
             APP_DIR=/opt/misahuh-bawh
 
-            # ── 1. Install Docker on first run ─────────────────────────────
+            # ── 1. Install Docker + git on first run ───────────────────────
             if ! command -v docker >/dev/null 2>&1; then
               echo "→ Installing Docker"
               apt-get update -y
-              apt-get install -y ca-certificates curl git gnupg ufw openssl
+              apt-get install -y ca-certificates curl git gnupg openssl
               install -m 0755 -d /etc/apt/keyrings
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
               chmod a+r /etc/apt/keyrings/docker.asc
@@ -44,17 +44,20 @@ jobs:
               apt-get update -y
               apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               systemctl enable --now docker
-              ufw allow 22/tcp || true
-              ufw allow 80/tcp || true
-              ufw allow 443/tcp || true
-              yes | ufw enable || true
             fi
+
+            # Make sure git is present even if Docker block was skipped
+            command -v git >/dev/null 2>&1 || apt-get install -y git
 
             # ── 2. Clone or update the repo ─────────────────────────────────
             if [ ! -d "$APP_DIR/.git" ]; then
               echo "→ Cloning $REPO_URL"
+              # If a partial/empty dir exists from a previous failed run, wipe it
+              if [ -d "$APP_DIR" ]; then
+                rm -rf "$APP_DIR"
+              fi
               mkdir -p "$APP_DIR"
-              git clone "$REPO_URL" "$APP_DIR"
+              git clone --depth=1 --branch main "$REPO_URL" "$APP_DIR"
             else
               echo "→ Pulling latest main"
               git -C "$APP_DIR" fetch --all --prune
