@@ -33,6 +33,7 @@ ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
 ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
 ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL="/dashboard"
 ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL="/dashboard"
+ARG CLERK_SECRET_KEY="sk_test_placeholder"
 
 # Set environment variables for build time (Next.js requires some of these during compile)
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -42,11 +43,14 @@ ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL
 ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
 ENV NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
 ENV NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
-ENV CLERK_SECRET_KEY="sk_test_placeholder"
+ENV CLERK_SECRET_KEY=$CLERK_SECRET_KEY
 
 # Copy installer's node_modules and pruned source code
 COPY --from=installer /app .
 COPY --from=pruner /app/out/full/ .
+
+# Copy root configuration files not captured by turbo prune
+COPY --from=pruner /app/tsconfig.base.json ./tsconfig.base.json
 
 # Generate Prisma Client
 RUN pnpm run db:generate || (cd packages/db && npx prisma generate)
