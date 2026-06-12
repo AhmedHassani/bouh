@@ -27,24 +27,39 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 RUN npm install -g pnpm
 
+# Define build arguments for client-side environment variables
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_placeholder"
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
+ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL="/dashboard"
+ARG NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL="/dashboard"
+
+# Set environment variables for build time (Next.js requires some of these during compile)
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV DATABASE_URL="postgresql://postgres:postgres_password@localhost:5432/bouh"
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ENV NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL
+ENV NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
+ENV NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL
+ENV NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL
+ENV CLERK_SECRET_KEY="sk_test_placeholder"
+
 # Copy installer's node_modules and pruned source code
 COPY --from=installer /app .
 COPY --from=pruner /app/out/full/ .
 
 # Generate Prisma Client
-# We attempt to run the generate script via turbo, or run prisma generate directly inside packages/db
-RUN pnpm run generate || (cd packages/db && npx prisma generate)
+RUN pnpm run db:generate || (cd packages/db && npx prisma generate)
 
 # Build the Next.js app using turbo
-ENV NEXT_TELEMETRY_DISABLED 1
 RUN pnpm run build --filter=web
 
 # Stage 4: Production runner
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -63,8 +78,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modul
 USER nextjs
 
 EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
 # Run the Next.js server using the standalone entrypoint
 CMD ["node", "apps/web/server.js"]
