@@ -56,7 +56,7 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           source: "docker-compose.yml"
-          target: "/app/bouh/"
+          target: "/opt/misahuh-bawh/"
           overwrite: true
 
       - name: Deploy to VPS via SSH
@@ -66,23 +66,28 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           script: |
-            mkdir -p /app/bouh
-            cd /app/bouh
+            # 1. Stop the old test project if it exists in /app/bouh to free up port 80
+            if [ -d "/app/bouh" ]; then
+              cd /app/bouh && docker compose down || true
+            fi
             
-            # Write/Update .env file from secrets
+            # 2. Go to the correct project folder
+            mkdir -p /opt/misahuh-bawh
+            cd /opt/misahuh-bawh
+            
+            # 3. Write/Update .env file from secrets
             echo "${{ secrets.ENV_PRODUCTION }}" > .env
             
-            # Log in to GHCR to pull the image
+            # 4. Log in to GHCR to pull the image
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # Pull the latest image
+            # 5. Stop existing containers to avoid port conflict, then pull and run
+            docker compose down || true
             docker compose pull web
-            
-            # Start containers
             docker compose up -d --remove-orphans
             
-            # Run Prisma migrations
+            # 6. Run Prisma migrations
             docker compose exec -T web sh -c "cd packages/db && npx prisma migrate deploy"
             
-            # Cleanup unused docker images to save VPS space
+            # 7. Cleanup unused docker images to save VPS space
             docker image prune -f
