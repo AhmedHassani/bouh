@@ -11,6 +11,44 @@ html, body {
   color: #e5e7eb;
 }
 
+/* ── Dark theme: rewrite Tailwind utilities so the whole UI is dark ── */
+/* Surfaces (cards, headers, sidebars) */
+.bg-white       { background-color: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(8px); }
+.bg-gray-50     { background-color: rgba(255, 255, 255, 0.025) !important; }
+.bg-gray-100    { background-color: rgba(255, 255, 255, 0.06) !important; }
+.bg-indigo-50   { background-color: rgba(99, 102, 241, 0.14) !important; }
+.bg-emerald-50  { background-color: rgba(16, 185, 129, 0.14) !important; }
+.bg-amber-50    { background-color: rgba(245, 158, 11, 0.14) !important; }
+.bg-red-50      { background-color: rgba(239, 68, 68, 0.14) !important; }
+.bg-violet-50   { background-color: rgba(139, 92, 246, 0.16) !important; }
+.bg-purple-50   { background-color: rgba(168, 85, 247, 0.16) !important; }
+
+/* Text */
+.text-gray-900  { color: #f3f4f6 !important; }
+.text-gray-800  { color: #e5e7eb !important; }
+.text-gray-700  { color: #d1d5db !important; }
+.text-gray-600  { color: #b3b5bd !important; }
+.text-gray-500  { color: #9ca3af !important; }
+.text-gray-400  { color: #8a8d96 !important; }
+.text-gray-300  { color: #6b6e76 !important; }
+.text-indigo-700, .text-indigo-800 { color: #a5b4fc !important; }
+.text-indigo-600 { color: #a5b4fc !important; }
+
+/* Borders & dividers */
+.border-gray-50, .border-gray-100, .border-gray-200, .border-gray-300 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.divide-gray-50 > * + *, .divide-gray-100 > * + * { border-color: rgba(255, 255, 255, 0.06) !important; }
+
+/* Form inputs — keep them readable against dark surfaces */
+input, textarea, select {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  color: #f3f4f6 !important;
+}
+input::placeholder, textarea::placeholder { color: #8a8d96 !important; }
+
+/* Indigo buttons stay vivid (no override needed for bg-indigo-600/700) */
+
 /* ── Tiptap editor base styles ── */
 .ProseMirror {
   outline: none;
