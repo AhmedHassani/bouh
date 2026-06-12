@@ -86,8 +86,5 @@ jobs:
             docker compose pull web
             docker compose up -d --remove-orphans
             
-            # 6. Run Prisma migrations
-            docker compose exec -T web sh -c "cd packages/db && npx prisma migrate deploy"
-            
-            # 7. Cleanup unused docker images to save VPS space
+            # 6. Cleanup unused docker images to save VPS space
             docker image prune -f
