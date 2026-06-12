@@ -122,6 +122,7 @@ export const authRouter = createTRPCRouter({
         name: z.string().min(2),
         password: z.string().min(8),
         phone: z.string().optional(),
+        avatar: z.string().optional(), // base64 data URL
       })
     )
     .mutation(async ({ input }) => {
@@ -137,6 +138,7 @@ export const authRouter = createTRPCRouter({
           name: input.name,
           phone: input.phone,
           password: hashed,
+          avatar: input.avatar,
           role: "CONSULTANT",
           consultantProfile: { create: {} },
         },
@@ -144,6 +146,30 @@ export const authRouter = createTRPCRouter({
       });
 
       return user;
+    }),
+
+  // Update avatar — admin or consultant (self)
+  updateAvatar: protectedProcedure
+    .input(z.object({
+      userId: z.string().optional(), // if omitted, update self
+      avatar: z.string().nullable(), // base64 or null to remove
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const targetUserId = input.userId ?? ctx.dbUserId;
+      if (!targetUserId) throw new TRPCError({ code: "BAD_REQUEST" });
+
+      // Only admins can update other users
+      if (input.userId && input.userId !== ctx.dbUserId) {
+        if (ctx.userRole !== "ADMIN" && ctx.userRole !== "SUPER_ADMIN") {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+      }
+
+      return db.user.update({
+        where: { id: targetUserId },
+        data:  { avatar: input.avatar },
+        select: { id: true, avatar: true },
+      });
     }),
 
   // ── Admin: create admin account ────────────────────────────────────────────

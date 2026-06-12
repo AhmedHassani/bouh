@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 interface NavItem {
   href: string;
   label: string;
-  icon: string;
+  icon?: string;
+  badgeKey?: string;
 }
 
 interface SidebarProps {
@@ -14,9 +15,10 @@ interface SidebarProps {
   title: string;
   subtitle?: string;
   footer?: React.ReactNode;
+  badges?: Record<string, number>; // map of badgeKey → count
 }
 
-export function Sidebar({ items, title, subtitle, footer }: SidebarProps) {
+export function Sidebar({ items, title, subtitle, footer, badges }: SidebarProps) {
   const pathname = usePathname();
 
   return (
@@ -31,6 +33,7 @@ export function Sidebar({ items, title, subtitle, footer }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const badgeCount = item.badgeKey ? badges?.[item.badgeKey] ?? 0 : 0;
           return (
             <Link
               key={item.href}
@@ -41,8 +44,13 @@ export function Sidebar({ items, title, subtitle, footer }: SidebarProps) {
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 }`}
             >
-              <span className="text-lg leading-none">{item.icon}</span>
-              {item.label}
+              {item.icon && <span className="text-lg leading-none">{item.icon}</span>}
+              <span className="flex-1">{item.label}</span>
+              {badgeCount > 0 && (
+                <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
+                  {badgeCount > 99 ? "99+" : badgeCount}
+                </span>
+              )}
             </Link>
           );
         })}

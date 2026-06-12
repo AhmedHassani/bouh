@@ -192,13 +192,19 @@ export const anonymousRouter = createTRPCRouter({
 
       const scheduledAt = new Date(input.scheduledAt);
 
-      // 48h rule for REPRESENTATIVE payment
+      // 48h rule for REPRESENTATIVE payment + require address+phone
       if (input.paymentMethod === "REPRESENTATIVE") {
         const hoursUntil = (scheduledAt.getTime() - Date.now()) / (1000 * 60 * 60);
         if (hoursUntil < 48) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "الدفع عبر الممثل يتطلب الحجز قبل 48 ساعة على الأقل",
+            message: "الدفع عبر المندوب يتطلب الحجز قبل 48 ساعة على الأقل",
+          });
+        }
+        if (!input.clientAddress?.trim() || !input.clientPhone?.trim()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "يجب إدخال العنوان ورقم الهاتف للدفع عبر المندوب",
           });
         }
       }
@@ -275,6 +281,10 @@ export const anonymousRouter = createTRPCRouter({
           ...(input.paymentMethod === "PACKAGE" && input.userPackageId && {
             userPackageId: input.userPackageId,
           }),
+          ...(input.paymentMethod === "REPRESENTATIVE" && {
+            clientAddress: input.clientAddress,
+            clientPhone:   input.clientPhone,
+          }),
         },
         include: {
           consultant: { include: { user: { select: { name: true, email: true } } } },
@@ -288,6 +298,46 @@ export const anonymousRouter = createTRPCRouter({
           where: { id: input.userPackageId },
           data:  { usedSessions: { increment: 1 } },
         });
+      }
+
+      // ── Fire notifications: admins + the consultant ──
+      try {
+        const { notify } = await import("../lib/notify");
+        const admins = await db.user.findMany({
+          where:  { role: { in: ["ADMIN", "SUPER_ADMIN"] } },
+          select: { id: true },
+        });
+        const consultantUser = await db.consultantProfile.findUnique({
+          where:  { id: input.consultantId },
+          select: { userId: true, user: { select: { name: true } } },
+        });
+        const dateStr = new Date(scheduledAt).toLocaleString("ar-IQ-u-nu-latn", {
+          day: "numeric", month: "long", hour: "2-digit", minute: "2-digit",
+        });
+        // Admin notification
+        if (admins.length > 0) {
+          await notify({
+            type:   "NEW_APPOINTMENT",
+            title:  "حجز جديد",
+            body:   `${anonUser.nickname} حجز جلسة مع ${consultantUser?.user.name ?? "مستشار"} — ${dateStr}`,
+            link:   `/admin/appointments`,
+            data:   { appointmentId: appointment.id },
+            userIds: admins.map((a) => a.id),
+          });
+        }
+        // Consultant notification
+        if (consultantUser?.userId) {
+          await notify({
+            type:   "NEW_APPOINTMENT",
+            title:  "حجز جديد عليك",
+            body:   `${anonUser.nickname} حجز جلسة معك — ${dateStr}`,
+            link:   `/consultant/appointments`,
+            data:   { appointmentId: appointment.id },
+            userId: consultantUser.userId,
+          });
+        }
+      } catch (err) {
+        console.error("[notify] new appointment failed:", err);
       }
 
       return appointment;

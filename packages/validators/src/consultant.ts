@@ -4,6 +4,7 @@ export const createConsultantSchema = z.object({
   email: z.string().email(),
   name: z.string().min(2).max(100),
   password: z.string().min(8),
+  avatar: z.string().optional(), // base64 data URL
   bio: z.string().optional(),
   sessionPrice: z.number().min(0),
   city: z.string().optional(),

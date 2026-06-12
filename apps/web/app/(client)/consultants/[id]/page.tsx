@@ -57,6 +57,8 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
   const availablePackages = myPackages?.filter((p) => p.totalSessions - p.usedSessions > 0) ?? [];
   const [notes, setNotes] = useState("");
   const [couponCode, setCouponCode] = useState("");
+  const [repAddress, setRepAddress] = useState("");
+  const [repPhone,   setRepPhone]   = useState("");
   const [couponApplied, setCouponApplied] = useState<{ discount: number; code: string } | null>(null);
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingError, setBookingError] = useState("");
@@ -139,6 +141,12 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
       setBookingError("اختر باقة من القائمة");
       return;
     }
+    if (paymentMethod === "REPRESENTATIVE") {
+      if (!repAddress.trim() || !repPhone.trim()) {
+        setBookingError("أدخل العنوان ورقم الهاتف");
+        return;
+      }
+    }
     setBookingError("");
     createBooking.mutate({
       anonUserId: identity.anonUserId,
@@ -146,6 +154,8 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
       scheduledAt: selectedSlot,
       paymentMethod: paymentMethod as "REPRESENTATIVE" | "ELECTRONIC" | "PACKAGE",
       userPackageId: paymentMethod === "PACKAGE" ? selectedPkgId : undefined,
+      clientAddress: paymentMethod === "REPRESENTATIVE" ? repAddress.trim() : undefined,
+      clientPhone:   paymentMethod === "REPRESENTATIVE" ? repPhone.trim()   : undefined,
       notes: notes || undefined,
       couponCode: couponApplied?.code,
       assessmentResultId: identity.assessmentResultId ?? undefined,
@@ -182,8 +192,12 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
             {/* Header card */}
             <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
               <div className="flex gap-5">
-                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-4xl font-bold text-indigo-600 flex-shrink-0">
-                  {consultant.user.name?.[0] ?? "؟"}
+                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-4xl font-bold text-indigo-600 flex-shrink-0 overflow-hidden">
+                  {consultant.user.avatar ? (
+                    <img src={consultant.user.avatar} alt={consultant.user.name ?? ""} className="w-full h-full object-cover" />
+                  ) : (
+                    consultant.user.name?.[0] ?? "؟"
+                  )}
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">{consultant.user.name}</h1>
@@ -421,14 +435,50 @@ export default function ConsultantProfilePage({ params }: { params: Promise<{ id
                     }`}
                   >
                     <p className="text-xl mb-1">🤝</p>
-                    <p className="font-semibold text-gray-800 text-sm">عبر الممثل</p>
+                    <p className="font-semibold text-gray-800 text-sm">عبر المندوب</p>
                     <p className="text-xs text-gray-400 mt-0.5">يتطلب ٤٨ ساعة مسبقاً</p>
                   </button>
                 </div>
                 {repWarning && (
                   <p className="text-xs text-red-500 bg-red-50 rounded-xl p-2 mt-2">
-                    ⚠️ الدفع عبر الممثل يتطلب الحجز قبل 48 ساعة على الأقل من موعد الجلسة
+                    ⚠️ الدفع عبر المندوب يتطلب الحجز قبل 48 ساعة على الأقل من موعد الجلسة
                   </p>
+                )}
+
+                {/* REPRESENTATIVE — address + phone + admin approval notice */}
+                {paymentMethod === "REPRESENTATIVE" && !repWarning && (
+                  <div className="mt-3 bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-500 text-lg leading-none">ℹ️</span>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                        سيقوم مندوبنا بزيارتك في العنوان لاستلام مبلغ الجلسة.
+                        <br />
+                        <strong>سيتم تأكيد الحجز من قبل الإدارة قبل تثبيت الموعد.</strong>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-600 block mb-1.5 font-medium">📍 العنوان كاملاً</label>
+                      <input
+                        value={repAddress}
+                        onChange={(e) => setRepAddress(e.target.value)}
+                        placeholder="المحافظة، المنطقة، الشارع، رقم المنزل..."
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 bg-white text-right"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-gray-600 block mb-1.5 font-medium">📞 رقم الهاتف</label>
+                      <input
+                        type="tel"
+                        value={repPhone}
+                        onChange={(e) => setRepPhone(e.target.value)}
+                        placeholder="07XX XXX XXXX"
+                        dir="ltr"
+                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 bg-white text-left"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             )}

@@ -1,16 +1,18 @@
 "use client";
 
 import { Sidebar, TopNav } from "@/components/ui/sidebar";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { trpc } from "@/lib/trpc/client";
 import { useRouter } from "next/navigation";
 
 const navItems = [
-  { href: "/consultant/dashboard", label: "لوحة التحكم", icon: "📊" },
-  { href: "/consultant/appointments", label: "المواعيد", icon: "📅" },
-  { href: "/consultant/availability", label: "أوقات العمل", icon: "🕐" },
-  { href: "/consultant/earnings", label: "الأرباح والعمولات", icon: "💰" },
-  { href: "/consultant/profile", label: "ملفي الشخصي", icon: "👤" },
+  { href: "/consultant/dashboard", label: "لوحة التحكم" },
+  { href: "/consultant/appointments", label: "الجلسات" },
+  { href: "/consultant/reports", label: "التقارير" },
+  { href: "/consultant/availability", label: "أوقات العمل" },
+  { href: "/consultant/earnings", label: "الأرباح والعمولات" },
+  { href: "/consultant/profile", label: "ملفي الشخصي" },
 ];
 
 function LogoutButton() {
@@ -27,9 +29,9 @@ function LogoutButton() {
   return (
     <button
       onClick={() => logout.mutate({ refreshToken: refreshToken ?? undefined })}
-      className="flex items-center gap-2 text-sm text-red-500 hover:text-red-700 px-4 py-2 transition-colors"
+      className="text-sm text-red-500 hover:text-red-700 px-4 py-2 transition-colors text-right"
     >
-      <span>🚪</span> تسجيل الخروج
+      تسجيل الخروج
     </button>
   );
 }
@@ -50,6 +52,7 @@ export default function ConsultantLayout({ children }: { children: React.ReactNo
           title="بوابة المستشار"
           right={
             <div className="flex items-center gap-3">
+              <NotificationBell userId={user?.id} />
               <span className="text-sm text-gray-500">{user?.name ?? user?.email}</span>
               <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold text-sm">
                 {user?.name?.[0] ?? "م"}

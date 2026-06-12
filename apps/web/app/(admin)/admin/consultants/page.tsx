@@ -72,7 +72,7 @@ export default function ConsultantsPage() {
       key: "rating",
       header: "التقييم",
       sortable: true,
-      render: (row: Row) => `⭐ ${Number(row.rating).toFixed(1)}`,
+      render: (row: Row) => Number(row.rating).toFixed(1),
     },
     {
       key: "status",

@@ -66,7 +66,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { key: "ELECTRONIC",     label: "💳 إلكتروني",   color: "bg-indigo-50 text-indigo-700 border-indigo-100" },
-              { key: "REPRESENTATIVE", label: "🤝 ممثل",       color: "bg-amber-50 text-amber-700 border-amber-100" },
+              { key: "REPRESENTATIVE", label: "🤝 مندوب",       color: "bg-amber-50 text-amber-700 border-amber-100" },
               { key: "PACKAGE",        label: "📦 باقة",       color: "bg-emerald-50 text-emerald-700 border-emerald-100" },
               { key: "PENDING",        label: "⏳ معلّق",       color: "bg-gray-50 text-gray-600 border-gray-100" },
             ].map((m) => (

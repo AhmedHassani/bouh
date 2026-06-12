@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { PageHeader } from "@/components/ui/page-header";
 import { Input, Textarea, Select, Button } from "@/components/ui/form";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 
 export default function NewConsultantPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function NewConsultantPage() {
     name: "", email: "", password: "", bio: "",
     sessionPrice: 0, city: "", yearsOfExperience: 0,
     academicQualification: "", commissionRate: 0.2,
+    avatar: null as string | null,
     specializationIds: [] as string[],
     certifications: [] as string[],
   });
@@ -67,6 +69,16 @@ export default function NewConsultantPage() {
 
       <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm space-y-5">
         <h3 className="font-semibold text-gray-700 text-sm border-b pb-3">معلومات الحساب</h3>
+
+        {/* Avatar */}
+        <div className="flex justify-center py-2">
+          <AvatarUpload
+            value={form.avatar}
+            onChange={(v) => set("avatar", v)}
+            fallback={form.name?.[0] ?? "👤"}
+            size="lg"
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Input label="الاسم الكامل" value={form.name} onChange={(e) => set("name", e.target.value)} error={errors.name} />

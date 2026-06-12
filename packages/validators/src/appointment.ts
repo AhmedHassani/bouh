@@ -16,10 +16,14 @@ export const updateAppointmentStatusSchema = z.object({
 
 export const appointmentFilterSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED", "NO_SHOW", "RESCHEDULED"]).optional(),
+  paymentMethod: z.enum(["REPRESENTATIVE", "ELECTRONIC", "PACKAGE", "PENDING"]).optional(),
+  awaitingRepApproval: z.boolean().optional(),
+  transferredOnly: z.boolean().optional(),
   consultantId: z.string().optional(),
   clientId: z.string().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  search: z.string().optional(),
   page: z.number().int().min(1).default(1),
   limit: z.number().int().min(1).max(100).default(20),
 });

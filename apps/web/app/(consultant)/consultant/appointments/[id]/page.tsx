@@ -59,7 +59,7 @@ export default function AppointmentDetailPage({ params }: { params: Promise<{ id
               <Row label="المدة" value={`${appointment.duration} دقيقة`} />
               <Row label="طريقة الدفع" value={
                 appointment.paymentMethod === "ELECTRONIC" ? "💳 إلكتروني" :
-                appointment.paymentMethod === "REPRESENTATIVE" ? "🤝 عبر الممثل" : "—"
+                appointment.paymentMethod === "REPRESENTATIVE" ? "🤝 عبر المندوب" : "—"
               } />
               <Row label="حالة الدفع" value={
                 appointment.paymentStatus === "PAID" ? "✅ مدفوع" :

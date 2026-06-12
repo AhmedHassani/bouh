@@ -71,13 +71,13 @@ export const consultantRouter = createTRPCRouter({
 
   // Admin — create
   create: adminProcedure.input(createConsultantSchema).mutation(async ({ input }) => {
-    const { specializationIds, ...rest } = input;
-    // In production, Clerk would create the user account here
+    const { specializationIds, avatar, ...rest } = input;
     const user = await db.user.create({
       data: {
         clerkId: `manual_${Date.now()}`,
         email: rest.email,
         name: rest.name,
+        avatar,
         role: "CONSULTANT",
         consultantProfile: {
           create: {

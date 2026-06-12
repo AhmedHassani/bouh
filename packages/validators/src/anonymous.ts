@@ -27,7 +27,9 @@ export const createAnonAppointmentSchema = z.object({
   consultantId: z.string(),
   scheduledAt: z.string().datetime(),
   paymentMethod: z.enum(["REPRESENTATIVE", "ELECTRONIC", "PACKAGE"]),
-  userPackageId: z.string().optional(), // required if paymentMethod === PACKAGE
+  userPackageId: z.string().optional(),  // required if paymentMethod === PACKAGE
+  clientAddress: z.string().optional(),  // required if paymentMethod === REPRESENTATIVE
+  clientPhone:   z.string().optional(),  // required if paymentMethod === REPRESENTATIVE
   assessmentResultId: z.string().optional(),
   couponCode: z.string().optional(),
   notes: z.string().optional(),

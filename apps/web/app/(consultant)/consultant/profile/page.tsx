@@ -1,9 +1,11 @@
 "use client";
 
 import { trpc } from "@/lib/trpc/client";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 
 export default function ConsultantProfilePage() {
-  const { data: profile } = trpc.consultant.getMyProfile.useQuery();
+  const { data: profile, refetch } = trpc.consultant.getMyProfile.useQuery();
+  const updateAvatar = trpc.auth.updateAvatar.useMutation({ onSuccess: () => refetch() });
 
   if (!profile) {
     return (
@@ -21,17 +23,20 @@ export default function ConsultantProfilePage() {
       </div>
 
       {/* Avatar + name */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4 flex items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-2xl font-bold text-indigo-600 flex-shrink-0">
-          {profile.user?.name?.[0] ?? "؟"}
-        </div>
-        <div>
+      <div className="bg-white rounded-2xl border border-gray-100 p-6 mb-4 flex items-center gap-5">
+        <AvatarUpload
+          value={profile.user?.avatar}
+          onChange={(v) => updateAvatar.mutate({ avatar: v })}
+          fallback={profile.user?.name?.[0] ?? "؟"}
+          size="md"
+        />
+        <div className="flex-1 text-right">
           <h2 className="text-lg font-bold text-gray-900">{profile.user?.name}</h2>
           <p className="text-sm text-gray-400">{profile.user?.email}</p>
-          <div className="flex items-center gap-1 mt-1">
-            <span className="text-amber-400 text-sm">★</span>
-            <span className="text-sm font-semibold text-gray-700">{Number(profile.rating).toFixed(1)}</span>
+          <div className="flex items-center gap-1 mt-1 justify-end">
             <span className="text-xs text-gray-400">({profile.totalReviews} تقييم)</span>
+            <span className="text-sm font-semibold text-gray-700">{Number(profile.rating).toFixed(1)}</span>
+            <span className="text-amber-400 text-sm">★</span>
           </div>
         </div>
       </div>

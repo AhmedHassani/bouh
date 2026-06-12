@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button, Input, Textarea } from "@/components/ui/form";
 import { Modal } from "@/components/ui/modal";
 
-type SpecForm = { nameAr: string; nameEn: string; description: string; icon: string };
-const emptyForm: SpecForm = { nameAr: "", nameEn: "", description: "", icon: "" };
+type SpecForm = { nameAr: string; nameEn: string; description: string };
+const emptyForm: SpecForm = { nameAr: "", nameEn: "", description: "" };
 
 export default function SpecializationsPage() {
   const { data: specs, refetch } = trpc.specialization.list.useQuery();
@@ -26,7 +26,7 @@ export default function SpecializationsPage() {
   const open = (spec?: typeof specs extends (infer T)[] | undefined ? T : never) => {
     if (spec) {
       setEditId(spec.id);
-      setForm({ nameAr: spec.nameAr, nameEn: spec.nameEn, description: spec.description ?? "", icon: spec.icon ?? "" });
+      setForm({ nameAr: spec.nameAr, nameEn: spec.nameEn, description: spec.description ?? "" });
     } else {
       setEditId(null);
       setForm(emptyForm);
@@ -37,8 +37,8 @@ export default function SpecializationsPage() {
   const close = () => { setModalOpen(false); setEditId(null); setForm(emptyForm); };
 
   const submit = () => {
-    if (editId) updateMutation.mutate({ id: editId, data: form });
-    else createMutation.mutate(form);
+    if (editId) updateMutation.mutate({ id: editId, data: { ...form, icon: "" } });
+    else createMutation.mutate({ ...form, icon: "" });
   };
 
   return (
@@ -53,12 +53,9 @@ export default function SpecializationsPage() {
         {specs?.map((spec) => (
           <div key={spec.id} className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
             <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                {spec.icon && <span className="text-3xl">{spec.icon}</span>}
-                <div>
-                  <h3 className="font-semibold text-gray-800">{spec.nameAr}</h3>
-                  <p className="text-xs text-gray-400">{spec.nameEn}</p>
-                </div>
+              <div>
+                <h3 className="font-semibold text-gray-800">{spec.nameAr}</h3>
+                <p className="text-xs text-gray-400">{spec.nameEn}</p>
               </div>
               <Badge variant={spec.isActive ? "success" : "neutral"}>
                 {spec.isActive ? "نشط" : "موقوف"}
@@ -81,7 +78,6 @@ export default function SpecializationsPage() {
 
         {(!specs || specs.length === 0) && (
           <div className="col-span-3 py-16 text-center text-gray-400">
-            <p className="text-4xl mb-3">🧠</p>
             <p>لا توجد تخصصات بعد</p>
           </div>
         )}
@@ -93,7 +89,6 @@ export default function SpecializationsPage() {
             <Input label="الاسم بالعربي" value={form.nameAr} onChange={(e) => set("nameAr", e.target.value)} />
             <Input label="الاسم بالإنجليزي" value={form.nameEn} onChange={(e) => set("nameEn", e.target.value)} />
           </div>
-          <Input label="أيقونة (إيموجي)" value={form.icon} onChange={(e) => set("icon", e.target.value)} placeholder="مثال: 🧠" />
           <Textarea label="الوصف" value={form.description} onChange={(e) => set("description", e.target.value)} />
           <div className="flex justify-end gap-3 pt-2">
             <Button variant="secondary" onClick={close}>إلغاء</Button>

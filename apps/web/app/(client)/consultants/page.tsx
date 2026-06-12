@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { trpc } from "@/lib/trpc/client";
 import { useAnonymousIdentity } from "@/lib/hooks/useAnonymousIdentity";
+import { SessionChatButton } from "@/components/client-chat";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 const SPEC_ICONS: Record<string, string> = {
@@ -68,16 +69,16 @@ export default function ClientDashboard() {
 
       {/* ── TOP BAR ── */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-5 h-15 flex items-center justify-between py-2">
+        <div className="max-w-5xl mx-auto px-4 sm:px-5 h-16 sm:h-15 flex items-center justify-between">
 
           {/* Logo + brand */}
           <div className="flex items-center gap-2.5">
-            <Image src="/app_logo.png" alt="مساحة بوح" width={36} height={36} className="rounded-full object-cover" />
-            <span className="font-extrabold text-indigo-700 text-base tracking-tight hidden sm:block">مساحة بوح</span>
+            <Image src="/app_logo.png" alt="مساحة بوح" width={40} height={40} className="rounded-full object-cover sm:w-9 sm:h-9" />
+            <span className="font-extrabold text-indigo-700 text-lg sm:text-base tracking-tight hidden sm:block">مساحة بوح</span>
           </div>
 
           {/* Center nav */}
-          <nav className="flex items-center gap-0.5 bg-gray-100 rounded-xl p-1">
+          <nav className="flex items-center gap-1 bg-gray-100 rounded-2xl sm:rounded-xl p-1.5 sm:p-1">
             {([
               ["home",         "🏠", "الرئيسية"],
               ["appointments", "📅", "حجوزاتي"],
@@ -86,13 +87,13 @@ export default function ClientDashboard() {
               <button
                 key={key}
                 onClick={() => switchTab(key)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 sm:px-3 py-2 sm:py-1.5 rounded-xl sm:rounded-lg text-base sm:text-sm font-medium transition-all ${
                   tab === key
                     ? "bg-white text-indigo-700 shadow-sm"
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                <span className="text-xs">{icon}</span>
+                <span className="text-lg sm:text-xs leading-none">{icon}</span>
                 <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
@@ -101,8 +102,8 @@ export default function ClientDashboard() {
           {/* User + logout */}
           <div className="flex items-center gap-2">
             {identity?.nickname && (
-              <div className="flex items-center gap-1.5 bg-indigo-50 text-indigo-700 rounded-xl px-3 py-1.5">
-                <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs flex items-center justify-center font-bold">
+              <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-xl px-2.5 sm:px-3 py-1.5">
+                <span className="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-indigo-600 text-white text-sm sm:text-xs flex items-center justify-center font-bold">
                   {identity.nickname[0]}
                 </span>
                 <span className="text-sm font-medium hidden sm:block">{identity.nickname}</span>
@@ -110,7 +111,7 @@ export default function ClientDashboard() {
             )}
             <button
               onClick={handleLogout}
-              className="text-xs text-gray-400 hover:text-red-500 transition-colors p-1.5 rounded-lg hover:bg-red-50"
+              className="text-lg sm:text-xs text-gray-400 hover:text-red-500 transition-colors p-2 sm:p-1.5 rounded-xl sm:rounded-lg hover:bg-red-50"
               title="خروج"
             >
               ⏻
@@ -120,7 +121,7 @@ export default function ClientDashboard() {
       </header>
 
       {/* ── CONTENT ── */}
-      <main className="max-w-5xl mx-auto px-5 py-5">
+      <main className="max-w-5xl mx-auto px-3 sm:px-5 py-4 sm:py-5">
         {paymentBanner === "success" && (
           <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-3">
             <span className="text-emerald-500 text-xl">✅</span>
@@ -137,6 +138,7 @@ export default function ClientDashboard() {
         {tab === "appointments" && <AppointmentsTab anonUserId={anonUserId} identityLoading={identityLoading} />}
         {tab === "packages"     && <PackagesTab anonUserId={anonUserId} />}
       </main>
+
     </div>
   );
 }
@@ -202,12 +204,6 @@ function SpecGrid({ onSelect }: { onSelect: (v: { id: string | null; name: strin
       {/* Header row */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="font-bold text-gray-900 text-base">تصفح المستشارين</h2>
-        <button
-          onClick={() => onSelect({ id: null, name: "كل المستشارين" })}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
-        >
-          عرض الكل <span>←</span>
-        </button>
       </div>
 
       {isLoading ? (
@@ -215,21 +211,37 @@ function SpecGrid({ onSelect }: { onSelect: (v: { id: string | null; name: strin
           {[...Array(6)].map((_, i) => <div key={i} className="h-24 bg-white rounded-2xl animate-pulse border border-gray-100" />)}
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {specs?.map((spec) => (
-            <button
-              key={spec.id}
-              onClick={() => onSelect({ id: spec.id, name: spec.nameAr })}
-              className="group bg-white border border-gray-100 rounded-2xl p-4 text-right hover:border-indigo-300 hover:shadow-md transition-all"
-            >
-              <div className="text-3xl mb-2.5">{spec.icon ?? getIcon(spec.nameAr)}</div>
-              <p className="font-semibold text-gray-800 text-sm group-hover:text-indigo-700 transition-colors leading-snug">
-                {spec.nameAr}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">{spec._count.consultants} مستشار</p>
-            </button>
-          ))}
-        </div>
+        <>
+          {/* Long banner: view all consultants — first */}
+          <button
+            onClick={() => onSelect({ id: null, name: "كل المستشارين" })}
+            className="group mb-4 w-full bg-gradient-to-l from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl px-6 py-4 flex items-center justify-between shadow-md hover:shadow-lg transition-all"
+          >
+            <span className="flex items-center gap-3">
+              <span className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-xl">👥</span>
+              <span className="text-right">
+                <span className="block font-bold text-base">عرض جميع المستشارين</span>
+                <span className="block text-xs text-indigo-100 mt-0.5">تصفح كل المستشارين من جميع التخصصات</span>
+              </span>
+            </span>
+            <span className="text-xl group-hover:-translate-x-1 transition-transform">←</span>
+          </button>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {specs?.map((spec) => (
+              <button
+                key={spec.id}
+                onClick={() => onSelect({ id: spec.id, name: spec.nameAr })}
+                className="group bg-white border border-gray-100 rounded-2xl p-4 text-right hover:border-indigo-300 hover:shadow-md transition-all"
+              >
+                <p className="font-semibold text-gray-800 text-sm group-hover:text-indigo-700 transition-colors leading-snug">
+                  {spec.nameAr}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">{spec._count.consultants} مستشار</p>
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
@@ -265,8 +277,12 @@ function ConsultantGrid({ specFilter, onBack }: { specFilter: { id: string | nul
                 className="group bg-white border border-gray-100 rounded-2xl p-4 hover:border-indigo-300 hover:shadow-md transition-all block"
               >
                 <div className="flex items-start gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-bold text-indigo-600 flex-shrink-0">
-                    {c.user.name?.[0] ?? "؟"}
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-xl font-bold text-indigo-600 flex-shrink-0 overflow-hidden">
+                    {c.user.avatar ? (
+                      <img src={c.user.avatar} alt={c.user.name ?? ""} className="w-full h-full object-cover" />
+                    ) : (
+                      c.user.name?.[0] ?? "؟"
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-gray-900 text-sm truncate group-hover:text-indigo-700 transition-colors">{c.user.name}</p>
@@ -411,8 +427,12 @@ function AppointmentsTab({ anonUserId, identityLoading }: { anonUserId: string; 
               const s = STATUS_MAP[appt.status] ?? STATUS_MAP.PENDING;
               return (
                 <div key={appt.id} className="p-4 flex items-center gap-4 hover:bg-gray-50/60 transition-colors">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-lg font-bold text-indigo-600 flex-shrink-0">
-                    {appt.consultant.user.name?.[0] ?? "؟"}
+                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-lg font-bold text-indigo-600 flex-shrink-0 overflow-hidden">
+                    {appt.consultant.user.avatar ? (
+                      <img src={appt.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      appt.consultant.user.name?.[0] ?? "؟"
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 text-sm">{appt.consultant.user.name}</p>
@@ -432,6 +452,22 @@ function AppointmentsTab({ anonUserId, identityLoading }: { anonUserId: string; 
                     </span>
 
                     {/* Payment status */}
+                    {/* REPRESENTATIVE — admin approval indicator */}
+                    {appt.paymentMethod === "REPRESENTATIVE" && (
+                      <>
+                        {!appt.adminApproved && appt.status === "PENDING" && (
+                          <span className="text-xs text-amber-600 bg-amber-50 font-medium px-2 py-1 rounded-lg">
+                            ⏳ ينتظر تأكيد الإدارة
+                          </span>
+                        )}
+                        {appt.adminApproved && (
+                          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                            <span>✓</span> تم تأكيد الحجز
+                          </span>
+                        )}
+                      </>
+                    )}
+
                     {appt.paymentMethod === "ELECTRONIC" && (
                       <>
                         {appt.paymentStatus === "PAID" && (
@@ -466,6 +502,15 @@ function AppointmentsTab({ anonUserId, identityLoading }: { anonUserId: string; 
                         انضم للجلسة
                       </a>
                     )}
+
+                    {/* Chat button — available on all non-cancelled appointments */}
+                    {appt.status !== "CANCELLED" && anonUserId && (
+                      <SessionChatButton
+                        anonUserId={anonUserId}
+                        appointmentId={appt.id}
+                        consultantName={appt.consultant.user.name ?? "المستشار"}
+                      />
+                    )}
                   </div>
                 </div>
               );
@@ -497,7 +542,7 @@ function PackagesTab({ anonUserId }: { anonUserId: string }) {
         refetch();
         setSelectedPkgId(null);
         setPaymentMethod(null);
-        alert("تم تسجيل طلبك! سيتواصل معك الممثل قريباً لإتمام الدفع.");
+        alert("تم تسجيل طلبك! سيتواصل معك المندوب قريباً لإتمام الدفع.");
       }
     },
     onError: (e) => alert(e.message),
@@ -607,7 +652,7 @@ function PackagesTab({ anonUserId }: { anonUserId: string }) {
                     disabled={isLoading || !anonUserId}
                     className="w-full py-2 rounded-xl bg-gray-50 text-gray-700 text-sm font-semibold hover:bg-gray-100 disabled:opacity-40 transition-colors flex items-center justify-center gap-1.5"
                   >
-                    {isLoading && paymentMethod === "REPRESENTATIVE" ? "..." : <><span>🤝</span> دفع عبر الممثل</>}
+                    {isLoading && paymentMethod === "REPRESENTATIVE" ? "..." : <><span>🤝</span> دفع عبر المندوب</>}
                   </button>
                 </div>
               </div>

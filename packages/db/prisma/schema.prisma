@@ -50,6 +50,9 @@ enum NotificationType {
   SESSION_CANCELLED
   COUPON_EXPIRY
   ASSESSMENT_COMPLETED
+  NEW_APPOINTMENT
+  CHAT_MESSAGE
+  RECOMMENDATION_RECEIVED
   GENERAL
 }
 
@@ -64,6 +67,9 @@ model AnonymousUser {
   assessmentResults AnonAssessmentResult[]
   appointments      Appointment[]
   userPackages      UserPackage[]
+  notifications     Notification[]
+  fcmTokens         FcmToken[]
+  conversations     Conversation[]
 
   @@unique([deviceId, nickname])
 }
@@ -115,6 +121,7 @@ model User {
   clientProfile     ClientProfile?
   consultantProfile ConsultantProfile?
   notifications     Notification[]
+  fcmTokens         FcmToken[]
   auditLogs         AuditLog[]
   refreshTokens     RefreshToken[]
 }
@@ -164,12 +171,72 @@ model ConsultantProfile {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  specializations ConsultantSpecialization[]
-  availability    Availability[]
-  appointments    Appointment[]
-  earnings        Earning[]
-  reviews         Review[]
-  timeOffs        ConsultantTimeOff[]
+  specializations  ConsultantSpecialization[]
+  availability     Availability[]
+  appointments     Appointment[]
+  transferredAway  Appointment[] @relation("TransferredFrom")
+  earnings         Earning[]
+  reviews          Review[]
+  timeOffs         ConsultantTimeOff[]
+  sessionReports          SessionReport[]
+  sessionRecommendations  SessionRecommendation[]
+  bonuses                 Bonus[]
+}
+
+/// Bonus — discretionary admin-issued reward (separate from session earnings)
+model Bonus {
+  id           String   @id @default(cuid())
+  consultantId String
+  consultant   ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  amount       Decimal  @db.Decimal(12, 2)
+  reason       String?
+  status       BonusStatus @default(PENDING)
+  createdById  String?   // admin user id who issued it
+  paidAt       DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([consultantId])
+  @@index([status])
+}
+
+enum BonusStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+/// SessionReport — private notes written by consultant after a session
+/// Admin CANNOT read these. They belong to the consultant only.
+model SessionReport {
+  id            String   @id @default(cuid())
+  appointmentId String   @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  consultantId  String
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  content       String   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([consultantId])
+}
+
+/// SessionRecommendation — recommendation from consultant to admin about a client
+/// Visible to: consultant (writer) + admin. NOT visible to client.
+model SessionRecommendation {
+  id            String   @id @default(cuid())
+  appointmentId String   @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  consultantId  String
+  consultant    ConsultantProfile @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+  content       String   @db.Text
+  isRead        Boolean  @default(false)
+  readAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([consultantId])
+  @@index([isRead])
 }
 
 model ConsultantTimeOff {
@@ -262,6 +329,19 @@ model Appointment {
   // Link to the user-package this session was deducted from (if paid via package)
   userPackageId String?
   userPackage   UserPackage?      @relation(fields: [userPackageId], references: [id])
+  // Required when paymentMethod = REPRESENTATIVE (rep visits client)
+  clientAddress String?
+  clientPhone   String?
+  // Admin approval flow (for REPRESENTATIVE bookings)
+  adminApproved   Boolean   @default(false)
+  adminApprovedBy String?
+  adminApprovedAt DateTime?
+  // Transfer tracking — record who held this appointment before transfer
+  transferredFromConsultantId String?
+  transferredFromConsultant   ConsultantProfile? @relation("TransferredFrom", fields: [transferredFromConsultantId], references: [id])
+  transferredAt   DateTime?
+  transferredBy   String?
+  transferReason  String?
   notes         String?
   cancelReason  String?
   cancelledBy   String?
@@ -271,6 +351,9 @@ model Appointment {
 
   earning Earning?
   review  Review?
+  sessionReport         SessionReport?
+  sessionRecommendation SessionRecommendation?
+  conversation          Conversation?
 }
 
 // ─── Packages ─────────────────────────────────────────────────────────────────
@@ -455,18 +538,89 @@ model Review {
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 model Notification {
-  id        String           @id @default(cuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type      NotificationType
-  titleAr   String
-  titleEn   String
-  bodyAr    String
-  bodyEn    String
-  data      Json?
-  isRead    Boolean          @default(false)
-  readAt    DateTime?
-  createdAt DateTime         @default(now())
+  id          String           @id @default(cuid())
+  // Recipient — exactly one of userId / anonUserId must be set
+  userId      String?
+  user        User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anonUserId  String?
+  anonUser    AnonymousUser?   @relation(fields: [anonUserId], references: [id], onDelete: Cascade)
+
+  type        NotificationType
+  title       String
+  body        String
+  data        Json?            // arbitrary payload — appointmentId, chatId, etc.
+  link        String?          // deep-link to open in app
+
+  isRead      Boolean          @default(false)
+  readAt      DateTime?
+  sentViaFcm  Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+
+  @@index([userId, isRead])
+  @@index([anonUserId, isRead])
+}
+
+// ─── Push tokens (Firebase Cloud Messaging) ────────────────────────────────────
+
+model FcmToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anonUserId  String?
+  anonUser    AnonymousUser? @relation(fields: [anonUserId], references: [id], onDelete: Cascade)
+  platform    String?  // "web" | "android" | "ios"
+  lastUsedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([anonUserId])
+}
+
+// ─── Chat ──────────────────────────────────────────────────────────────────────
+
+/// A conversation between an anonymous client and admin staff,
+/// scoped to a specific appointment (one conversation per session).
+model Conversation {
+  id              String   @id @default(cuid())
+  appointmentId   String   @unique
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  anonUserId      String
+  anonUser        AnonymousUser @relation(fields: [anonUserId], references: [id], onDelete: Cascade)
+
+  lastMessageAt   DateTime @default(now())
+  // Unread counters per side (incremented on send, reset on read)
+  unreadByAnon    Int      @default(0)
+  unreadByAdmin   Int      @default(0)
+  closed          Boolean  @default(false)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  messages        Message[]
+
+  @@index([anonUserId])
+  @@index([lastMessageAt])
+}
+
+enum MessageSender {
+  CLIENT
+  ADMIN
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          MessageSender
+  // If admin sent, capture which admin (for audit)
+  senderUserId    String?
+  content         String   @db.Text
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  createdAt       DateTime @default(now())
+
+  @@index([conversationId, createdAt])
 }
 
 // ─── Platform Settings ────────────────────────────────────────────────────────

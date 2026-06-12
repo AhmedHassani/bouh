@@ -12,6 +12,11 @@ import { adminRouter } from "./routers/admin";
 import { anonymousRouter } from "./routers/anonymous";
 import { authRouter } from "./routers/auth";
 import { packageRouter } from "./routers/package";
+import { sessionReportRouter } from "./routers/sessionReport";
+import { bonusRouter } from "./routers/bonus";
+import { sessionRecommendationRouter } from "./routers/sessionRecommendation";
+import { chatRouter } from "./routers/chat";
+import { reportRouter } from "./routers/report";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -27,6 +32,11 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   anonymous: anonymousRouter,
   package:   packageRouter,
+  sessionReport: sessionReportRouter,
+  bonus:    bonusRouter,
+  sessionRecommendation: sessionRecommendationRouter,
+  chat:     chatRouter,
+  report:   reportRouter,
 });
 
 export type AppRouter = typeof appRouter;
