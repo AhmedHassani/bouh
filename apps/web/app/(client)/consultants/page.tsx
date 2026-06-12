@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -35,7 +35,15 @@ type Tab = "home" | "appointments" | "packages";
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD SHELL
 // ══════════════════════════════════════════════════════════════════════════════
-export default function ClientDashboard() {
+export default function ClientDashboardPage() {
+  return (
+    <Suspense fallback={null}>
+      <ClientDashboard />
+    </Suspense>
+  );
+}
+
+function ClientDashboard() {
   const [tab, setTab]           = useState<Tab>("home");
   const [specFilter, setSpecFilter] = useState<{ id: string | null; name: string } | null>(null);
   const { identity, clearIdentity, isLoading: identityLoading } = useAnonymousIdentity();
