@@ -5,9 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/bouh-web
-
 concurrency:
   group: deploy-prod
   cancel-in-progress: false
@@ -18,18 +15,12 @@ jobs:
     permissions:
       contents: read
       packages: write
-    outputs:
-      image_tag: ${{ steps.meta.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compute image tag
-        id: meta
-        run: |
-          TAG="$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')-$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          # Image name must be lowercase
-          echo "IMAGE_LOWER=$(echo $IMAGE | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+      - name: Lowercase image name
+        id: img
+        run: echo "name=ghcr.io/$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')/bouh-web" >> $GITHUB_OUTPUT
 
       - uses: docker/setup-buildx-action@v3
 
@@ -39,14 +30,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push image
+      - name: Build & push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE_LOWER }}:latest
-            ${{ env.IMAGE_LOWER }}:${{ steps.meta.outputs.tag }}
+          tags: ${{ steps.img.outputs.name }}:latest
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
@@ -54,107 +43,68 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.2.0
-        env:
-          IMAGE_LOWER: ghcr.io/${{ github.repository_owner }}/bouh-web
         with:
           host:     ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port:     ${{ secrets.VPS_PORT || 22 }}
-          envs:     IMAGE_LOWER
           script_stop: true
           command_timeout: 15m
           script: |
-            set -euo pipefail
+            set -e
             APP_DIR=/opt/misahuh-bawh
+            REPO_URL=https://github.com/AhmedHassani/bouh.git
 
-            # First-time install: docker + compose + .env
             if ! command -v docker >/dev/null 2>&1; then
               export DEBIAN_FRONTEND=noninteractive
               apt-get update -y
-              apt-get install -y ca-certificates curl gnupg openssl
+              apt-get install -y ca-certificates curl gnupg openssl git
               install -m 0755 -d /etc/apt/keyrings
               curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
               chmod a+r /etc/apt/keyrings/docker.asc
-              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "${VERSION_CODENAME:-jammy}") stable" \
-                > /etc/apt/sources.list.d/docker.list
+              CODENAME=$(. /etc/os-release && echo ${VERSION_CODENAME:-jammy})
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $CODENAME stable" > /etc/apt/sources.list.d/docker.list
               apt-get update -y
               apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               systemctl enable --now docker
             fi
 
-            mkdir -p "$APP_DIR"
+            command -v git >/dev/null 2>&1 || apt-get install -y git
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              [ -d "$APP_DIR" ] && rm -rf "$APP_DIR"
+              git clone --depth=1 --branch main "$REPO_URL" "$APP_DIR"
+            else
+              cd "$APP_DIR"
+              git fetch origin main
+              git reset --hard origin/main
+            fi
             cd "$APP_DIR"
 
-            # Always (re)write docker-compose.prod.yml — uses the GHCR image, no build on server
-            IMAGE_LOWER_RESOLVED=$(echo "$IMAGE_LOWER" | tr '[:upper:]' '[:lower:]')
-            cat > docker-compose.yml <<EOF
-            services:
-              db:
-                image: postgres:16-alpine
-                container_name: misahuh-db
-                restart: unless-stopped
-                environment:
-                  POSTGRES_USER:     \${POSTGRES_USER:-misahuh}
-                  POSTGRES_PASSWORD: \${POSTGRES_PASSWORD}
-                  POSTGRES_DB:       \${POSTGRES_DB:-misahuh}
-                volumes:
-                  - db-data:/var/lib/postgresql/data
-                healthcheck:
-                  test: ["CMD-SHELL", "pg_isready -U \${POSTGRES_USER:-misahuh} -d \${POSTGRES_DB:-misahuh}"]
-                  interval: 5s
-                  timeout: 5s
-                  retries: 10
-
-              web:
-                image: $IMAGE_LOWER_RESOLVED:latest
-                container_name: misahuh-web
-                restart: unless-stopped
-                pull_policy: always
-                depends_on:
-                  db:
-                    condition: service_healthy
-                env_file:
-                  - .env
-                environment:
-                  DATABASE_URL: postgresql://\${POSTGRES_USER:-misahuh}:\${POSTGRES_PASSWORD}@db:5432/\${POSTGRES_DB:-misahuh}
-                  NODE_ENV: production
-                ports:
-                  - "80:3000"
-
-            volumes:
-              db-data:
-            EOF
-
-            # Generate .env if missing
             if [ ! -f .env ]; then
-              PG_PASS=$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-32)
-              JWT_A=$(openssl rand -base64 48 | tr -d '\n')
-              JWT_R=$(openssl rand -base64 48 | tr -d '\n')
-              JWT_G=$(openssl rand -base64 48 | tr -d '\n')
-              cat > .env <<EOF
-            POSTGRES_USER=misahuh
-            POSTGRES_PASSWORD=$PG_PASS
-            POSTGRES_DB=misahuh
-            JWT_ACCESS_SECRET=$JWT_A
-            JWT_REFRESH_SECRET=$JWT_R
-            JWT_GUEST_SECRET=$JWT_G
-            PUSHER_APP_ID=
-            PUSHER_KEY=
-            PUSHER_SECRET=
-            PUSHER_CLUSTER=
-            NEXT_PUBLIC_PUSHER_KEY=
-            NEXT_PUBLIC_PUSHER_CLUSTER=
-            EOF
+              PG=$(openssl rand -base64 24 | tr -d /+= | cut -c1-32)
+              A=$(openssl rand -base64 48 | tr -d '\n')
+              R=$(openssl rand -base64 48 | tr -d '\n')
+              G=$(openssl rand -base64 48 | tr -d '\n')
+              {
+                echo "POSTGRES_USER=misahuh"
+                echo "POSTGRES_PASSWORD=$PG"
+                echo "POSTGRES_DB=misahuh"
+                echo "JWT_ACCESS_SECRET=$A"
+                echo "JWT_REFRESH_SECRET=$R"
+                echo "JWT_GUEST_SECRET=$G"
+                echo "PUSHER_APP_ID="
+                echo "PUSHER_KEY="
+                echo "PUSHER_SECRET="
+                echo "PUSHER_CLUSTER="
+                echo "NEXT_PUBLIC_PUSHER_KEY="
+                echo "NEXT_PUBLIC_PUSHER_CLUSTER="
+              } > .env
               chmod 600 .env
             fi
 
-            # Pull the new image and (re)start
-            docker compose pull web
+            docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -f
-            echo "✓ Deploy complete — http://$(hostname -I | awk '{print $1}')/"
