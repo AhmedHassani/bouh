@@ -1,8 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
 # ─── Base image with pnpm ─────────────────────────────────────────────────────
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat openssl
+# Use Debian slim everywhere (build + runner) so Prisma's "native" engine is
+# debian-openssl-3.0.x in both stages — no musl mismatch.
+FROM node:20-slim AS base
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /repo
 
@@ -31,8 +33,10 @@ RUN pnpm --filter @repo/db exec prisma generate
 RUN pnpm --filter web build
 
 # ─── Runner ───────────────────────────────────────────────────────────────────
-FROM node:20-alpine AS runner
-RUN apk add --no-cache libc6-compat openssl
+# Use Debian slim (not Alpine) — Prisma's default engine targets debian-openssl,
+# which avoids the "linux-musl-openssl-3.0.x engine not found" issue.
+FROM node:20-slim AS runner
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
@@ -45,9 +49,13 @@ COPY --from=build /repo/apps/web/public ./apps/web/public
 
 # Prisma schema (for `prisma migrate deploy` at startup)
 COPY --from=build /repo/packages/db/prisma ./packages/db/prisma
-# The generated Prisma client (engine binaries) — standalone tracing usually
-# already includes these, but copy explicitly to be safe.
-COPY --from=build /repo/node_modules/.pnpm/@prisma+client*/node_modules/.prisma /app/node_modules/.prisma
+
+# The generated Prisma client lives inside packages/db/node_modules/.prisma
+# (because pnpm hoists). Copy both possible locations to be safe — the
+# standalone tracing doesn't always pick up the engine binary.
+COPY --from=build /repo/node_modules/.prisma /app/node_modules/.prisma
+COPY --from=build /repo/packages/db/node_modules/.prisma /app/packages/db/node_modules/.prisma
+COPY --from=build /repo/apps/web/node_modules/.prisma /app/apps/web/node_modules/.prisma
 
 # Entrypoint runs migrations then starts the server
 COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
