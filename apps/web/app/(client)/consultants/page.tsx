@@ -30,7 +30,32 @@ const STATUS_MAP: Record<string, { label: string; color: string; dot: string }> 
   CANCELLED: { label: "ملغى",         color: "text-red-500 bg-red-50",      dot: "bg-red-400" },
 };
 
-type Tab = "home" | "appointments" | "packages";
+type Tab = "home" | "appointments" | "packages" | "settings";
+
+// Icon paths (single SVG path each) for the nav — keeps look unified, no emoji
+const NAV_ICONS: Record<Tab, JSX.Element> = {
+  home: (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6"><path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-8.5Z"/></svg>
+  ),
+  appointments: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+  ),
+  packages: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/><path d="m9 11 2 2 4-4"/></svg>
+  ),
+  settings: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+  ),
+};
+
+const NAV_LABELS: Record<Tab, string> = {
+  home: "الرئيسية",
+  appointments: "حجوزاتي",
+  packages: "الباقات",
+  settings: "الإعدادات",
+};
+
+const NAV_ORDER: Tab[] = ["home", "appointments", "packages", "settings"];
 
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD SHELL
@@ -73,80 +98,161 @@ function ClientDashboard() {
   function switchTab(t: Tab) { setTab(t); setSpecFilter(null); }
 
   return (
-    <div className="min-h-screen" dir="rtl">
+    <div className="min-h-screen lg:flex lg:flex-row-reverse" dir="rtl">
 
-      {/* ── TOP BAR ── */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
-        <div className="max-w-5xl mx-auto px-4 sm:px-5 h-16 sm:h-15 flex items-center justify-between">
-
-          {/* Logo + brand */}
-          <div className="flex items-center gap-2.5">
-            <Image src="/app_logo.png" alt="مساحة بوح" width={40} height={40} className="rounded-full object-cover sm:w-9 sm:h-9" />
-            <span className="font-extrabold text-indigo-700 text-lg sm:text-base tracking-tight hidden sm:block">مساحة بوح</span>
-          </div>
-
-          {/* Center nav */}
-          <nav className="flex items-center gap-1 bg-gray-100 rounded-2xl sm:rounded-xl p-1.5 sm:p-1">
-            {([
-              ["home",         "🏠", "الرئيسية"],
-              ["appointments", "📅", "حجوزاتي"],
-              ["packages",     "📦", "الباقات"],
-            ] as [Tab, string, string][]).map(([key, icon, label]) => (
-              <button
-                key={key}
-                onClick={() => switchTab(key)}
-                className={`flex items-center gap-1.5 px-3.5 sm:px-3 py-2 sm:py-1.5 rounded-xl sm:rounded-lg text-base sm:text-sm font-medium transition-all ${
-                  tab === key
-                    ? "bg-white text-indigo-700 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                <span className="text-lg sm:text-xs leading-none">{icon}</span>
-                <span className="hidden sm:inline">{label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* User + logout */}
-          <div className="flex items-center gap-2">
-            {identity?.nickname && (
-              <div className="flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-xl px-2.5 sm:px-3 py-1.5">
-                <span className="w-8 h-8 sm:w-6 sm:h-6 rounded-full bg-indigo-600 text-white text-sm sm:text-xs flex items-center justify-center font-bold">
-                  {identity.nickname[0]}
-                </span>
-                <span className="text-sm font-medium hidden sm:block">{identity.nickname}</span>
-              </div>
-            )}
+      {/* ── DESKTOP SIDEBAR (right) ── */}
+      <aside className="hidden lg:flex flex-col w-56 bg-white/[0.03] border-l border-white/5 px-4 py-6 gap-2 sticky top-0 h-screen">
+        {NAV_ORDER.map((key) => {
+          const active = tab === key;
+          return (
             <button
-              onClick={handleLogout}
-              className="text-lg sm:text-xs text-gray-400 hover:text-red-500 transition-colors p-2 sm:p-1.5 rounded-xl sm:rounded-lg hover:bg-red-50"
-              title="خروج"
+              key={key}
+              onClick={() => switchTab(key)}
+              className={`flex items-center justify-between gap-3 px-4 py-3 rounded-2xl transition-all ${
+                active
+                  ? "bg-white/10 text-white"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
             >
-              ⏻
+              <span className="text-sm font-medium">{NAV_LABELS[key]}</span>
+              <span className={active ? "text-white" : "text-gray-400"}>{NAV_ICONS[key]}</span>
             </button>
+          );
+        })}
+      </aside>
+
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* ── TOP BAR ── */}
+        <header className="sticky top-0 z-30 backdrop-blur-md bg-black/10 border-b border-white/5">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            {/* Avatar (left) */}
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center overflow-hidden">
+              <Image src="/app_logo.png" alt="مساحة بوح" width={40} height={40} className="rounded-full object-cover" />
+            </div>
+
+            {/* Welcome (center) */}
+            <p className="text-base font-semibold text-white">
+              مرحباً <span className="text-indigo-300">{identity?.nickname ?? ""}</span>
+            </p>
+
+            {/* Spacer to balance the avatar */}
+            <div className="w-10 h-10" />
           </div>
+        </header>
+
+        {/* ── CONTENT ── */}
+        <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-5 pb-24 lg:pb-8">
+          {paymentBanner === "success" && (
+            <div className="mb-4 bg-emerald-500/15 border border-emerald-500/30 rounded-2xl px-4 py-3 text-sm text-emerald-300 font-semibold">
+              ✓ تم الدفع بنجاح! ستجد موعدك في "حجوزاتي"
+            </div>
+          )}
+          {paymentBanner === "error" && (
+            <div className="mb-4 bg-red-500/15 border border-red-500/30 rounded-2xl px-4 py-3 text-sm text-red-300 font-semibold">
+              ✗ فشل الدفع — يرجى المحاولة مرة أخرى
+            </div>
+          )}
+
+          {tab === "home"         && <HomeTab anonUserId={anonUserId} specFilter={specFilter} setSpecFilter={setSpecFilter} setTab={setTab} />}
+          {tab === "appointments" && <AppointmentsTab anonUserId={anonUserId} identityLoading={identityLoading} />}
+          {tab === "packages"     && <PackagesTab anonUserId={anonUserId} />}
+          {tab === "settings"     && <SettingsTab nickname={identity?.nickname ?? ""} onLogout={handleLogout} />}
+        </main>
+
+        {/* ── MOBILE BOTTOM NAV ── */}
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 backdrop-blur-md bg-black/30 border-t border-white/5">
+          <div className="max-w-5xl mx-auto flex items-center justify-around px-2 py-2">
+            {NAV_ORDER.map((key) => {
+              const active = tab === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => switchTab(key)}
+                  className={`flex flex-col items-center gap-1 px-3 py-1.5 rounded-xl transition-colors ${
+                    active ? "text-white" : "text-gray-500"
+                  }`}
+                >
+                  {NAV_ICONS[key]}
+                  <span className="text-[11px] font-medium">{NAV_LABELS[key]}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SETTINGS TAB
+// ══════════════════════════════════════════════════════════════════════════════
+function SettingsTab({ nickname, onLogout }: { nickname: string; onLogout: () => void }) {
+  const WHATSAPP_NUMBER = "9647700000000"; // TODO: configure from admin settings
+  const PRIVACY_URL     = "/privacy";
+
+  function confirmDelete() {
+    if (typeof window !== "undefined" && window.confirm("هل أنت متأكد؟ سيتم حذف بياناتك من الجهاز نهائياً.")) {
+      try {
+        localStorage.removeItem("misahuh_anon");
+        localStorage.removeItem("misahuh_device_id");
+      } catch {}
+      window.location.href = "/";
+    }
+  }
+
+  return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-bold text-white text-center mb-2">الإعدادات</h1>
+
+      {/* Profile card */}
+      <div className="bg-white/[0.04] border border-white/5 rounded-2xl py-6 flex flex-col items-center gap-3">
+        <div className="w-20 h-20 rounded-full bg-indigo-500/25 flex items-center justify-center text-white text-3xl font-bold">
+          {nickname[0]?.toUpperCase() ?? "؟"}
         </div>
-      </header>
+        <p className="text-white text-lg font-semibold">{nickname}</p>
+      </div>
 
-      {/* ── CONTENT ── */}
-      <main className="max-w-5xl mx-auto px-3 sm:px-5 py-4 sm:py-5">
-        {paymentBanner === "success" && (
-          <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-            <span className="text-emerald-500 text-xl">✅</span>
-            <p className="text-sm text-emerald-700 font-semibold">تم الدفع بنجاح! ستجد موعدك في تبويب "حجوزاتي"</p>
-          </div>
-        )}
-        {paymentBanner === "error" && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-center gap-3">
-            <span className="text-red-500 text-xl">⚠️</span>
-            <p className="text-sm text-red-700 font-semibold">فشل الدفع — يرجى المحاولة مرة أخرى</p>
-          </div>
-        )}
-        {tab === "home"         && <HomeTab anonUserId={anonUserId} specFilter={specFilter} setSpecFilter={setSpecFilter} setTab={setTab} />}
-        {tab === "appointments" && <AppointmentsTab anonUserId={anonUserId} identityLoading={identityLoading} />}
-        {tab === "packages"     && <PackagesTab anonUserId={anonUserId} />}
-      </main>
+      {/* Menu */}
+      <div className="bg-white/[0.04] border border-white/5 rounded-2xl divide-y divide-white/5">
+        <a
+          href={`https://wa.me/${WHATSAPP_NUMBER}`}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center justify-between px-5 py-4 text-white hover:bg-white/5 transition-colors"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-400"><path d="M7 7l10 10M17 7v10H7"/></svg>
+          <span className="flex items-center gap-3">
+            <span>مراسلة الدعم (واتساب)</span>
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-emerald-400"><path d="M20.5 3.5A11.5 11.5 0 0 0 3.7 18.3L2 22l3.8-1.6A11.5 11.5 0 1 0 20.5 3.5ZM12 21a9 9 0 0 1-4.6-1.3l-.3-.2-2.3 1 1-2.2-.2-.4A9 9 0 1 1 12 21Zm5-6.7c-.3-.2-1.7-.8-2-.9-.3-.1-.4-.1-.6.1l-.9 1c-.1.2-.3.2-.6.1a7.4 7.4 0 0 1-3.6-3.2c-.3-.4.3-.4.8-1.3.1-.2 0-.3 0-.5l-.9-2c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.2 3.4 5.3 4.7.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.3.2-.7.2-1.2.2-1.3-.1-.2-.3-.3-.6-.4Z"/></svg>
+          </span>
+        </a>
 
+        <a href={PRIVACY_URL} className="flex items-center justify-between px-5 py-4 text-white hover:bg-white/5 transition-colors">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5 text-gray-400"><path d="m15 18-6-6 6-6"/></svg>
+          <span className="flex items-center gap-3">
+            <span>سياسة الخصوصية</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-gray-300"><path d="M12 2 4 5v7c0 4.5 3.2 8.5 8 10 4.8-1.5 8-5.5 8-10V5l-8-3Z"/></svg>
+          </span>
+        </a>
+
+        <button onClick={onLogout} className="w-full flex items-center justify-between px-5 py-4 text-white hover:bg-white/5 transition-colors">
+          <span />
+          <span className="flex items-center gap-3">
+            <span>تسجيل الخروج</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-gray-300"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </span>
+        </button>
+
+        <button onClick={confirmDelete} className="w-full flex items-center justify-between px-5 py-4 text-red-400 hover:bg-red-500/10 transition-colors">
+          <span />
+          <span className="flex items-center gap-3">
+            <span>حذف الحساب</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-6 h-6 text-red-400"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
@@ -209,49 +315,77 @@ function SpecGrid({ onSelect }: { onSelect: (v: { id: string | null; name: strin
 
   return (
     <div>
-      {/* Header row */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="font-bold text-gray-900 text-base">تصفح المستشارين</h2>
+      {/* Header */}
+      <div className="mb-5">
+        <h2 className="font-bold text-white text-lg mb-1">اختر التخصص الأنسب لك:</h2>
+        <p className="text-sm text-gray-400">يمكنك تغيير التخصص لاحقاً، هذه مجرد نقطة بداية.</p>
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-24 bg-white rounded-2xl animate-pulse border border-gray-100" />)}
+        <div className="space-y-3 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
+          {[...Array(6)].map((_, i) => <div key={i} className="h-20 rounded-2xl bg-white/5 animate-pulse" />)}
         </div>
       ) : (
         <>
-          {/* Long banner: view all consultants — first */}
-          <button
+          {/* Long banner: view all consultants */}
+          <SpecCard
+            label="عرض كل المستشارين"
             onClick={() => onSelect({ id: null, name: "كل المستشارين" })}
-            className="group mb-4 w-full bg-gradient-to-l from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-2xl px-6 py-4 flex items-center justify-between shadow-md hover:shadow-lg transition-all"
-          >
-            <span className="flex items-center gap-3">
-              <span className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-xl">👥</span>
-              <span className="text-right">
-                <span className="block font-bold text-base">عرض جميع المستشارين</span>
-                <span className="block text-xs text-indigo-100 mt-0.5">تصفح كل المستشارين من جميع التخصصات</span>
-              </span>
-            </span>
-            <span className="text-xl group-hover:-translate-x-1 transition-transform">←</span>
-          </button>
+            highlight
+            icon={
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M16 11a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm-8 0a3 3 0 1 0-3-3 3 3 0 0 0 3 3Zm0 2c-2.7 0-8 1.3-8 4v3h16v-3c0-2.7-5.3-4-8-4Zm8 0c-.3 0-.7 0-1.1.1A5.4 5.4 0 0 1 18 17v3h6v-3c0-2.7-5.3-4-8-4Z"/></svg>
+            }
+          />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {/* Spec cards */}
+          <div className="mt-3 space-y-3 lg:grid lg:grid-cols-3 lg:gap-3 lg:space-y-0">
             {specs?.map((spec) => (
-              <button
+              <SpecCard
                 key={spec.id}
+                label={spec.nameAr}
+                subLabel={`${spec._count.consultants} مستشار متاحون`}
                 onClick={() => onSelect({ id: spec.id, name: spec.nameAr })}
-                className="group bg-white border border-gray-100 rounded-2xl p-4 text-right hover:border-indigo-300 hover:shadow-md transition-all"
-              >
-                <p className="font-semibold text-gray-800 text-sm group-hover:text-indigo-700 transition-colors leading-snug">
-                  {spec.nameAr}
-                </p>
-                <p className="text-xs text-gray-400 mt-1">{spec._count.consultants} مستشار</p>
-              </button>
+              />
             ))}
           </div>
         </>
       )}
     </div>
+  );
+}
+
+// Generic spec/banner card used by SpecGrid
+function SpecCard({
+  label, subLabel, onClick, icon, highlight,
+}: {
+  label: string;
+  subLabel?: string;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  highlight?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group w-full rounded-2xl border px-4 py-4 flex items-center gap-3 transition-colors text-right ${
+        highlight
+          ? "bg-indigo-500/10 border-indigo-400/30 hover:bg-indigo-500/15"
+          : "bg-white/[0.04] border-white/5 hover:bg-white/[0.07]"
+      }`}
+    >
+      <span className="text-gray-400 group-hover:-translate-x-0.5 transition-transform">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><path d="m15 18-6-6 6-6"/></svg>
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-white font-semibold text-sm leading-tight">{label}</p>
+        {subLabel && <p className="text-xs text-gray-400 mt-1">{subLabel}</p>}
+      </div>
+      <span className="w-11 h-11 rounded-full bg-indigo-400/20 text-indigo-200 flex items-center justify-center flex-shrink-0">
+        {icon ?? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        )}
+      </span>
+    </button>
   );
 }
 
