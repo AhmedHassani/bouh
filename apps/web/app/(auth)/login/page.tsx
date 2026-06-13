@@ -34,10 +34,10 @@ function LoginForm() {
       parsed.state = { ...parsed.state, accessToken: data.accessToken };
       localStorage.setItem("misahuh_auth", JSON.stringify(parsed));
 
-      // Cookie matches refresh-token lifetime (7d). The middleware just checks
+      // Cookie matches refresh-token lifetime (20d). The middleware just checks
       // for presence; the actual access token is refreshed every 13 min by
       // useTokenRefresh inside the admin/consultant layouts.
-      document.cookie = `misahuh_access_token=${data.accessToken}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict`;
+      document.cookie = `misahuh_access_token=${data.accessToken}; path=/; max-age=${20 * 24 * 60 * 60}; SameSite=Strict`;
 
       if (data.user.role === "CONSULTANT") {
         router.push("/consultant/dashboard");

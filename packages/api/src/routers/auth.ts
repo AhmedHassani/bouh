@@ -5,7 +5,7 @@ import { createTRPCRouter, publicProcedure, protectedProcedure, adminProcedure }
 import { signAccessToken, signRefreshToken, verifyRefreshToken, signGuestToken } from "../lib/jwt";
 import { hashPassword, verifyPassword } from "../lib/password";
 
-const REFRESH_TTL_DAYS = 7;
+const REFRESH_TTL_DAYS = 20;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

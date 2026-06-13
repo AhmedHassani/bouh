@@ -47,7 +47,7 @@ export async function verifyAccessToken(token: string): Promise<TokenPayload | n
   }
 }
 
-// ─── Refresh Token (7 days) ───────────────────────────────────────────────────
+// ─── Refresh Token (20 days) ──────────────────────────────────────────────────
 
 export async function signRefreshToken(userId: string, jti: string): Promise<string> {
   return new SignJWT({ type: "refresh" })
@@ -55,7 +55,7 @@ export async function signRefreshToken(userId: string, jti: string): Promise<str
     .setSubject(userId)
     .setJti(jti)
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime("20d")
     .sign(REFRESH_SECRET);
 }
 

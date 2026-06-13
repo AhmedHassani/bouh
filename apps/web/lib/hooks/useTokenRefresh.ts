@@ -5,7 +5,7 @@ import { trpc } from "@/lib/trpc/client";
 import { useAuthStore } from "@/lib/stores/authStore";
 
 const REFRESH_INTERVAL_MS = 13 * 60 * 1000;   // 13 min (token expires at 15)
-const COOKIE_MAX_AGE_S    = 7 * 24 * 60 * 60; // 7 days — match refresh-token lifetime
+const COOKIE_MAX_AGE_S    = 20 * 24 * 60 * 60; // 20 days — match refresh-token lifetime
 
 /**
  * Silently refreshes the access token in the background so the user stays
