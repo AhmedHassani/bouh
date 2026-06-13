@@ -16,10 +16,19 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false); // after a failed login, offer register
 
+  // Iraqi phone format: starts with 07, total 11 digits
+  const phoneOk = /^07\d{9}$/.test(phone.trim());
   const valid =
     name.trim().length >= 2 &&
-    phone.trim().length >= 6 &&
+    phoneOk &&
     password.length >= 4;
+
+  function onPhoneChange(v: string) {
+    // Keep digits only, max 11
+    const digits = v.replace(/\D/g, "").slice(0, 11);
+    setPhone(digits);
+    if (notFound) { setNotFound(false); setError(""); }
+  }
 
   async function handleSubmit() {
     if (!valid) {
@@ -75,8 +84,7 @@ export default function HomePage() {
         </p>
 
         {/* Name */}
-        <div className="relative mb-3">
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">👤</span>
+        <div className="mb-3">
           <input
             type="text"
             value={name}
@@ -84,34 +92,38 @@ export default function HomePage() {
             placeholder="الاسم كاملاً"
             maxLength={30}
             autoFocus
-            className="w-full pr-11 pl-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-right"
+            dir="rtl"
+            className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-right"
           />
         </div>
 
-        {/* Phone */}
-        <div className="relative mb-3">
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">📱</span>
+        {/* Phone — Iraqi format 07XXXXXXXXX */}
+        <div className="mb-3">
           <input
             type="tel"
+            inputMode="numeric"
             value={phone}
-            onChange={(e) => onFieldChange(setPhone)(e.target.value)}
-            placeholder="رقم الهاتف"
-            dir="ltr"
-            className="w-full pr-11 pl-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-left"
+            onChange={(e) => onPhoneChange(e.target.value)}
+            placeholder="رقم الهاتف (07XXXXXXXXX)"
+            maxLength={11}
+            dir="rtl"
+            className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-right"
           />
+          {phone.length > 0 && !phoneOk && (
+            <p className="text-xs text-amber-600 mt-1.5 text-right">يجب أن يبدأ بـ 07 ويتكون من 11 رقم</p>
+          )}
         </div>
 
         {/* Password */}
-        <div className="relative mb-4">
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔒</span>
+        <div className="mb-4">
           <input
             type="password"
             value={password}
             onChange={(e) => onFieldChange(setPwd)(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && (notFound ? handleRegister() : handleSubmit())}
             placeholder="كلمة المرور"
-            dir="ltr"
-            className="w-full pr-11 pl-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition"
+            dir="rtl"
+            className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-white text-gray-800 text-sm placeholder:text-gray-400 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-right"
           />
         </div>
 

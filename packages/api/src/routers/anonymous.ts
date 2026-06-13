@@ -73,7 +73,7 @@ export const anonymousRouter = createTRPCRouter({
   clientLogin: publicProcedure
     .input(z.object({
       name:     z.string().min(2),
-      phone:    z.string().min(6),
+      phone:    z.string().regex(/^07\d{9}$/, "رقم الهاتف يجب أن يبدأ بـ 07 ويتكون من 11 رقم"),
       password: z.string().min(4),
       deviceId: z.string().min(1),
     }))
@@ -97,7 +97,7 @@ export const anonymousRouter = createTRPCRouter({
   clientRegister: publicProcedure
     .input(z.object({
       name:     z.string().min(2),
-      phone:    z.string().min(6),
+      phone:    z.string().regex(/^07\d{9}$/, "رقم الهاتف يجب أن يبدأ بـ 07 ويتكون من 11 رقم"),
       password: z.string().min(4),
       deviceId: z.string().min(1),
     }))
