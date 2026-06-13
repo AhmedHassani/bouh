@@ -530,138 +530,219 @@ function AppointmentsTab({ anonUserId, identityLoading }: { anonUserId: string; 
 
   return (
     <div>
+      <h1 className="text-xl font-bold text-white text-center mb-5">جلساتي</h1>
+
       {/* Sub-tabs */}
-      <div className="flex gap-2 mb-4">
-        {([["upcoming", "القادمة", upcoming.length], ["past", "السابقة", past.length]] as [typeof view, string, number][]).map(([key, label, count]) => (
-          <button key={key} onClick={() => setView(key)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-              view === key ? "bg-indigo-600 text-white" : "bg-white text-gray-500 border border-gray-200 hover:border-indigo-300"
+      <div className="flex border-b border-white/10 mb-5">
+        {([["upcoming", "الجلسات القادمة"], ["past", "الجلسات السابقة"]] as [typeof view, string][]).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setView(key)}
+            className={`flex-1 pb-3 text-sm font-semibold transition-colors relative ${
+              view === key ? "text-white" : "text-gray-400 hover:text-gray-200"
             }`}
           >
             {label}
-            <span className={`text-xs rounded-lg px-1.5 py-0.5 font-bold ${view === key ? "bg-indigo-500 text-white" : "bg-gray-100 text-gray-500"}`}>
-              {count}
-            </span>
+            {view === key && <span className="absolute bottom-0 inset-x-0 h-0.5 bg-indigo-400 rounded-full" />}
           </button>
         ))}
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-        {isLoading ? (
-          <div className="p-5 space-y-3">
-            {[...Array(2)].map((_, i) => <div key={i} className="h-20 bg-gray-50 rounded-xl animate-pulse" />)}
-          </div>
-        ) : list.length === 0 ? (
-          <div className="py-14 text-center text-gray-400">
-            <p className="text-4xl mb-3">{view === "upcoming" ? "📅" : "📋"}</p>
-            <p className="text-sm">
-              {view === "upcoming" ? "لا توجد حجوزات قادمة" : "لا توجد حجوزات سابقة"}
-            </p>
-            {view === "upcoming" && (
-              <button onClick={() => {}} className="mt-3 text-sm text-indigo-600 font-medium hover:underline">
-                احجز موعداً ←
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {list.map((appt) => {
-              const s = STATUS_MAP[appt.status] ?? STATUS_MAP.PENDING;
-              return (
-                <div key={appt.id} className="p-4 flex items-center gap-4 hover:bg-gray-50/60 transition-colors">
-                  <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-lg font-bold text-indigo-600 flex-shrink-0 overflow-hidden">
-                    {appt.consultant.user.avatar ? (
-                      <img src={appt.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      appt.consultant.user.name?.[0] ?? "؟"
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm">{appt.consultant.user.name}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{formatDate(appt.scheduledAt)}</p>
-                    <div className="flex gap-1 mt-1.5 flex-wrap">
-                      {appt.consultant.specializations.slice(0, 2).map((s) => (
-                        <span key={s.specializationId} className="text-xs bg-gray-100 text-gray-500 rounded-md px-1.5 py-0.5">
-                          {s.specialization.nameAr}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-lg ${s.color}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-                      {s.label}
-                    </span>
-
-                    {/* Payment status */}
-                    {/* REPRESENTATIVE — admin approval indicator */}
-                    {appt.paymentMethod === "REPRESENTATIVE" && (
-                      <>
-                        {!appt.adminApproved && appt.status === "PENDING" && (
-                          <span className="text-xs text-amber-600 bg-amber-50 font-medium px-2 py-1 rounded-lg">
-                            ⏳ ينتظر تأكيد الإدارة
-                          </span>
-                        )}
-                        {appt.adminApproved && (
-                          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                            <span>✓</span> تم تأكيد الحجز
-                          </span>
-                        )}
-                      </>
-                    )}
-
-                    {appt.paymentMethod === "ELECTRONIC" && (
-                      <>
-                        {appt.paymentStatus === "PAID" && (
-                          <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                            <span className="text-xs">✓</span> مدفوع
-                          </span>
-                        )}
-                        {appt.paymentStatus === "PENDING" && appt.status !== "CANCELLED" && (
-                          <button
-                            onClick={() => retryPayment.mutate({ appointmentId: appt.id, anonUserId })}
-                            disabled={retryPayment.isPending}
-                            className="text-xs bg-amber-500 text-white hover:bg-amber-600 rounded-lg px-3 py-1 font-medium transition-colors disabled:opacity-50"
-                          >
-                            {retryPayment.isPending ? "..." : "💳 إكمال الدفع"}
-                          </button>
-                        )}
-                        {appt.paymentStatus === "FAILED" && (
-                          <button
-                            onClick={() => retryPayment.mutate({ appointmentId: appt.id, anonUserId })}
-                            disabled={retryPayment.isPending || appt.status === "CANCELLED"}
-                            className="text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg px-3 py-1 font-medium transition-colors disabled:opacity-50"
-                          >
-                            {appt.status === "CANCELLED" ? "فشل الدفع" : "🔄 حاول مجدداً"}
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {appt.meetingLink && appt.status === "CONFIRMED" && appt.paymentStatus === "PAID" && (
-                      <a href={appt.meetingLink} target="_blank" rel="noreferrer"
-                        className="text-xs bg-indigo-600 text-white hover:bg-indigo-700 rounded-lg px-3 py-1 font-medium transition-colors">
-                        انضم للجلسة
-                      </a>
-                    )}
-
-                    {/* Chat button — available on all non-cancelled appointments */}
-                    {appt.status !== "CANCELLED" && anonUserId && (
-                      <SessionChatButton
-                        anonUserId={anonUserId}
-                        appointmentId={appt.id}
-                        consultantName={appt.consultant.user.name ?? "المستشار"}
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(2)].map((_, i) => <div key={i} className="h-44 bg-white/5 rounded-2xl animate-pulse" />)}
+        </div>
+      ) : list.length === 0 ? (
+        <div className="bg-white/[0.04] border border-white/5 rounded-2xl py-14 text-center text-gray-400">
+          <p className="text-sm">
+            {view === "upcoming" ? "لا توجد حجوزات قادمة" : "لا توجد حجوزات سابقة"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {list.map((appt) => (
+            <AppointmentBigCard
+              key={appt.id}
+              appt={appt}
+              isPast={view === "past"}
+              anonUserId={anonUserId}
+              retryPayment={(id) => retryPayment.mutate({ appointmentId: id, anonUserId })}
+              retryLoading={retryPayment.isPending}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+// ── Big appointment card (matches the mockup) ─────────────────────────────────
+function AppointmentBigCard({
+  appt, isPast, anonUserId, retryPayment, retryLoading,
+}: {
+  appt: {
+    id: string;
+    status: string;
+    scheduledAt: string | Date;
+    paymentMethod: string;
+    paymentStatus: string;
+    adminApproved: boolean;
+    meetingLink: string | null;
+    consultant: { user: { name: string | null; avatar: string | null } };
+  };
+  isPast: boolean;
+  anonUserId: string;
+  retryPayment: (id: string) => void;
+  retryLoading: boolean;
+}) {
+  const scheduled = new Date(appt.scheduledAt);
+  const [now, setNow] = useState<Date>(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const msUntilStart = scheduled.getTime() - now.getTime();
+  const msUntilJoinOpen = msUntilStart - 30 * 60 * 1000; // 30 min before
+  const joinOpen = msUntilJoinOpen <= 0 && msUntilStart > -60 * 60 * 1000; // open from -30min to +60min
+
+  const dateStr = `${scheduled.getFullYear()}/${scheduled.getMonth() + 1}/${scheduled.getDate()}`;
+  const adminPending = appt.paymentMethod === "REPRESENTATIVE" && !appt.adminApproved;
+
+  const s = STATUS_MAP[appt.status] ?? STATUS_MAP.PENDING;
+
+  return (
+    <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-5 space-y-4">
+
+      {/* Header: title + camera icon */}
+      <div className="flex items-center justify-between">
+        <span className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
+          <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17 10.5V7a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>
+        </span>
+        <p className="text-white font-bold">
+          {isPast ? "جلسة سابقة" : "جلسة قادمة"}
+        </p>
+      </div>
+
+      {/* Consultant info */}
+      <div className="flex items-center gap-3 justify-end">
+        <div className="text-right">
+          <p className="text-xs text-gray-400">المستشار</p>
+          <p className="text-white font-bold text-base mt-0.5">{appt.consultant.user.name}</p>
+          <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5 justify-end">
+            <span>{dateStr}{adminPending ? " - الوقت (يحدد بعد التأكيد)" : ` - ${pad2(scheduled.getHours())}:${pad2(scheduled.getMinutes())}`}</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>
+          </p>
+        </div>
+        <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden flex items-center justify-center text-white font-bold">
+          {appt.consultant.user.avatar
+            ? <img src={appt.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
+            : appt.consultant.user.name?.[0] ?? "؟"}
+        </div>
+      </div>
+
+      {/* Status / payment / countdown panel */}
+      {!isPast && (
+        <>
+          {adminPending && (
+            <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl px-4 py-2.5 text-center text-amber-300 text-sm font-semibold">
+              ⏳ ينتظر تأكيد الإدارة
+            </div>
+          )}
+
+          {appt.paymentStatus === "PENDING" && appt.paymentMethod === "ELECTRONIC" && (
+            <button
+              onClick={() => retryPayment(appt.id)}
+              disabled={retryLoading}
+              className="w-full bg-amber-500 text-white rounded-2xl py-3 font-semibold text-sm"
+            >
+              {retryLoading ? "..." : "إكمال الدفع"}
+            </button>
+          )}
+
+          {/* Countdown — only when there's a meeting link expected */}
+          {appt.status === "CONFIRMED" && msUntilStart > 0 && (
+            <div className="bg-white/[0.03] border border-white/10 rounded-2xl py-5 text-center space-y-2">
+              <p className="text-amber-400 text-xs font-medium flex items-center justify-center gap-1.5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>
+                زر الدخول يُفعّل قبل الموعد بـ 30 دقيقة
+              </p>
+              <p className="text-white text-3xl font-bold tracking-wider">
+                {formatCountdownArabic(Math.max(0, msUntilJoinOpen))}
+              </p>
+              <p className="text-gray-400 text-xs">متبقي لفتح زر الدخول</p>
+            </div>
+          )}
+
+          {/* Join / disabled button */}
+          {appt.meetingLink && joinOpen && appt.paymentStatus === "PAID" ? (
+            <a
+              href={appt.meetingLink}
+              target="_blank"
+              rel="noreferrer"
+              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl py-3 font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17 10.5V7a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>
+              انضم للجلسة
+            </a>
+          ) : appt.status === "CONFIRMED" ? (
+            <button
+              disabled
+              className="w-full bg-indigo-400/30 text-white/60 rounded-2xl py-3 font-semibold text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17 10.5V7a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>
+              الدخول غير متاح
+            </button>
+          ) : null}
+
+          {appt.status === "CONFIRMED" && (
+            <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M12 9v4"/><circle cx="12" cy="17" r=".5" fill="currentColor"/><path d="M12 3 2 21h20L12 3Z"/></svg>
+              سيتم فتح الجلسة عبر Google Meet.
+            </p>
+          )}
+        </>
+      )}
+
+      {/* Status pill (past sessions or non-confirmed) */}
+      {(isPast || appt.status !== "CONFIRMED") && !adminPending && (
+        <div className={`text-center text-sm font-semibold px-3 py-2 rounded-xl ${s.color}`}>
+          {s.label}
+        </div>
+      )}
+
+      {/* Chat button */}
+      {appt.status !== "CANCELLED" && anonUserId && (
+        <div className="flex justify-center pt-1">
+          <SessionChatButton anonUserId={anonUserId} appointmentId={appt.id} consultantName={appt.consultant.user.name ?? "المستشار"} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Helpers for countdown formatting ──────────────────────────────────────────
+function pad2(n: number) { return String(n).padStart(2, "0"); }
+
+function formatCountdownArabic(ms: number): string {
+  if (ms <= 0) return "متاح الآن";
+  const totalSec = Math.floor(ms / 1000);
+  const days    = Math.floor(totalSec / 86400);
+  const hours   = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600) / 60);
+  const seconds = totalSec % 60;
+
+  if (days > 0) {
+    return `${days} يوم ${hours} ساعة ${minutes} دقيقة`;
+  }
+  if (hours > 0) {
+    return `${hours} ساعة ${minutes} دقيقة ${seconds} ثانية`;
+  }
+  if (minutes > 0) {
+    return `${minutes} دقيقة ${seconds} ثانية`;
+  }
+  return `${seconds} ثانية`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
