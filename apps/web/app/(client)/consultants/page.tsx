@@ -98,7 +98,7 @@ function ClientDashboard() {
   function switchTab(t: Tab) { setTab(t); setSpecFilter(null); }
 
   return (
-    <div className="min-h-screen lg:flex lg:flex-row-reverse" dir="rtl">
+    <div className="min-h-screen lg:flex" dir="rtl">
 
       {/* ── DESKTOP SIDEBAR (right) ── */}
       <aside className="hidden lg:flex flex-col w-56 bg-white/[0.03] border-l border-white/5 px-4 py-6 gap-2 sticky top-0 h-screen">
