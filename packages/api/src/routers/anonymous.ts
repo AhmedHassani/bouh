@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { db } from "@repo/db";
 import { createTRPCRouter, publicProcedure, consultantProcedure } from "../trpc";
+import { hashPassword, verifyPassword } from "../lib/password";
 import {
   getOrCreateAnonUserSchema,
   checkAnonCompletedSchema,
@@ -62,6 +63,60 @@ export const anonymousRouter = createTRPCRouter({
       // 3) Otherwise, create a new anon user
       return db.anonymousUser.create({
         data: { deviceId: input.deviceId, nickname: input.nickname },
+      });
+    }),
+
+  // ─── Client login (name + phone + password) ─────────────────────────────────
+  // Returns the matched account, or NOT_FOUND if (name, phone, password) don't
+  // identify a single account. Generic NOT_FOUND covers both "no user with this
+  // phone" and "wrong password" (don't leak which one).
+  clientLogin: publicProcedure
+    .input(z.object({
+      name:     z.string().min(2),
+      phone:    z.string().min(6),
+      password: z.string().min(4),
+      deviceId: z.string().min(1),
+    }))
+    .mutation(async ({ input }) => {
+      const user = await db.anonymousUser.findUnique({ where: { phone: input.phone } });
+      if (!user || !user.password || user.nickname !== input.name.trim()) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "الحساب غير موجود. يرجى إنشاء حساب جديد." });
+      }
+      const ok = await verifyPassword(input.password, user.password);
+      if (!ok) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "الحساب غير موجود. يرجى إنشاء حساب جديد." });
+      }
+      // Attach this device so future visits on this browser are recognized
+      return db.anonymousUser.update({
+        where: { id: user.id },
+        data:  { deviceId: input.deviceId },
+      });
+    }),
+
+  // ─── Client registration ────────────────────────────────────────────────────
+  clientRegister: publicProcedure
+    .input(z.object({
+      name:     z.string().min(2),
+      phone:    z.string().min(6),
+      password: z.string().min(4),
+      deviceId: z.string().min(1),
+    }))
+    .mutation(async ({ input }) => {
+      const existing = await db.anonymousUser.findUnique({ where: { phone: input.phone } });
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "رقم الهاتف مسجّل مسبقاً. سجّل دخول بدلاً من إنشاء حساب جديد.",
+        });
+      }
+      const hashed = await hashPassword(input.password);
+      return db.anonymousUser.create({
+        data: {
+          deviceId: input.deviceId,
+          nickname: input.name.trim(),
+          phone:    input.phone,
+          password: hashed,
+        },
       });
     }),
 

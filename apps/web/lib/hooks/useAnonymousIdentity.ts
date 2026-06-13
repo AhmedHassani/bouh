@@ -102,12 +102,47 @@ export function useAnonymousIdentity() {
     setIdentity(null);
   }, []);
 
+  const clientLogin    = trpc.anonymous.clientLogin.useMutation();
+  const clientRegister = trpc.anonymous.clientRegister.useMutation();
+
+  const loginWithPhone = useCallback(
+    async (name: string, phone: string, password: string): Promise<AnonIdentity> => {
+      const deviceId = getOrCreateDeviceId();
+      const user = await clientLogin.mutateAsync({ name, phone, password, deviceId });
+      const newIdentity: AnonIdentity = {
+        deviceId, nickname: user.nickname, anonUserId: user.id,
+        assessmentCompleted: false, assessmentResultId: null,
+      };
+      saveIdentity(newIdentity);
+      setIdentity(newIdentity);
+      return newIdentity;
+    },
+    [clientLogin],
+  );
+
+  const registerWithPhone = useCallback(
+    async (name: string, phone: string, password: string): Promise<AnonIdentity> => {
+      const deviceId = getOrCreateDeviceId();
+      const user = await clientRegister.mutateAsync({ name, phone, password, deviceId });
+      const newIdentity: AnonIdentity = {
+        deviceId, nickname: user.nickname, anonUserId: user.id,
+        assessmentCompleted: false, assessmentResultId: null,
+      };
+      saveIdentity(newIdentity);
+      setIdentity(newIdentity);
+      return newIdentity;
+    },
+    [clientRegister],
+  );
+
   return {
     identity,
     isLoading,
     initIdentity,
     markAssessmentCompleted,
     clearIdentity,
+    loginWithPhone,
+    registerWithPhone,
     deviceId: typeof window !== "undefined" ? getOrCreateDeviceId() : "",
   };
 }

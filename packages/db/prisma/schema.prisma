@@ -63,6 +63,8 @@ model AnonymousUser {
   id        String   @id @default(cuid())
   deviceId  String
   nickname  String
+  phone     String?  @unique
+  password  String?
   createdAt DateTime @default(now())
 
   assessmentResults AnonAssessmentResult[]
