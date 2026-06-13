@@ -249,4 +249,18 @@ export const authRouter = createTRPCRouter({
         select: { id: true, email: true },
       });
     }),
+
+  // ── Update user name (admin) ────────────────────────────────────────────────
+  updateName: adminProcedure
+    .input(z.object({
+      userId: z.string(),
+      name:   z.string().min(2, "الاسم يجب أن يكون حرفين على الأقل").max(80),
+    }))
+    .mutation(({ input }) =>
+      db.user.update({
+        where: { id: input.userId },
+        data:  { name: input.name.trim() },
+        select: { id: true, name: true },
+      }),
+    ),
 });

@@ -39,12 +39,17 @@ export default function ConsultantDetailPage({ params }: { params: Promise<{ id:
   const toggleActive    = trpc.consultant.toggleActive.useMutation({ onSuccess: () => refetch() });
   const resetPassword   = trpc.auth.resetPassword.useMutation({ onSuccess: () => { setNewPassword(""); setPasswordMsg("✅ تم تغيير كلمة المرور"); } });
   const updateEmail     = trpc.auth.updateEmail.useMutation({ onSuccess: () => { refetch(); setEmailMsg("✅ تم تحديث البريد الإلكتروني"); } });
+  const updateName      = trpc.auth.updateName.useMutation({ onSuccess: () => { refetch(); setNameMsg("✅ تم تحديث الاسم"); } });
   const updateAvatar    = trpc.auth.updateAvatar.useMutation({ onSuccess: () => refetch() });
 
   const [newPassword, setNewPassword] = useState("");
   const [newEmail, setNewEmail]       = useState("");
+  const [newName, setNewName]         = useState("");
   const [passwordMsg, setPasswordMsg] = useState("");
   const [emailMsg, setEmailMsg]       = useState("");
+  const [nameMsg, setNameMsg]         = useState("");
+
+  useEffect(() => { if (consultant) setNewName(consultant.user.name ?? ""); }, [consultant]);
 
   const set = (k: string, v: unknown) => setForm((f) => ({ ...f, [k]: v }));
   const toggleSpec = (sid: string) =>
@@ -143,6 +148,30 @@ export default function ConsultantDetailPage({ params }: { params: Promise<{ id:
         <h3 className="font-semibold text-gray-700 text-sm border-b pb-3 mb-5">إعدادات الحساب</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Update Name */}
+          <div>
+            <p className="text-sm font-medium text-gray-700 mb-1">تحديث الاسم</p>
+            <p className="text-xs text-gray-400 mb-3">الاسم الحالي: <span className="font-medium text-gray-600">{consultant.user.name}</span></p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newName}
+                onChange={(e) => { setNewName(e.target.value); setNameMsg(""); }}
+                placeholder="الاسم الجديد"
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition text-right"
+              />
+              <button
+                onClick={() => updateName.mutate({ userId: consultant.user.id, name: newName })}
+                disabled={newName.trim().length < 2 || newName.trim() === consultant.user.name || updateName.isPending}
+                className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 disabled:opacity-40 transition-colors whitespace-nowrap"
+              >
+                {updateName.isPending ? "..." : "تحديث"}
+              </button>
+            </div>
+            {nameMsg && <p className="text-xs text-emerald-600 mt-2">{nameMsg}</p>}
+            {updateName.error && <p className="text-xs text-red-500 mt-2">{updateName.error.message}</p>}
+          </div>
+
           {/* Update Email */}
           <div>
             <p className="text-sm font-medium text-gray-700 mb-1">تحديث البريد الإلكتروني</p>
