@@ -4,6 +4,7 @@ import { Sidebar, TopNav } from "@/components/ui/sidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { trpc } from "@/lib/trpc/client";
+import { useTokenRefresh } from "@/lib/hooks/useTokenRefresh";
 import { useRouter } from "next/navigation";
 
 const navItems = [
@@ -41,6 +42,7 @@ function LogoutButton() {
 }
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  useTokenRefresh();
   const { user } = useAuthStore();
   const { data: chatUnread } = trpc.chat.adminTotalUnread.useQuery(undefined, {
     refetchInterval: 10000, // poll every 10s for new messages

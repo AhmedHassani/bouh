@@ -4,6 +4,7 @@ import { Sidebar, TopNav } from "@/components/ui/sidebar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { trpc } from "@/lib/trpc/client";
+import { useTokenRefresh } from "@/lib/hooks/useTokenRefresh";
 import { useRouter } from "next/navigation";
 
 const navItems = [
@@ -37,6 +38,7 @@ function LogoutButton() {
 }
 
 export default function ConsultantLayout({ children }: { children: React.ReactNode }) {
+  useTokenRefresh();
   const { user } = useAuthStore();
 
   return (
