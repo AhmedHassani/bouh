@@ -612,110 +612,117 @@ function AppointmentBigCard({
 
   const s = STATUS_MAP[appt.status] ?? STATUS_MAP.PENDING;
 
-  return (
-    <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-5 space-y-4">
+  const timeStr = adminPending
+    ? "الوقت (يحدد بعد التأكيد)"
+    : `${pad2(scheduled.getHours())}:${pad2(scheduled.getMinutes())}`;
 
-      {/* Header: title + camera icon */}
+  // Show the chat button only AFTER the session has been completed
+  const canChat = appt.status === "COMPLETED";
+
+  return (
+    <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-6 space-y-5">
+
+      {/* ── Header: title + camera icon ── */}
       <div className="flex items-center justify-between">
-        <span className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center">
+        <span className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center flex-shrink-0">
           <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17 10.5V7a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>
         </span>
-        <p className="text-white font-bold">
+        <p className="text-white font-bold text-base">
           {isPast ? "جلسة سابقة" : "جلسة قادمة"}
         </p>
       </div>
 
-      {/* Consultant info */}
-      <div className="flex items-center gap-3 justify-end">
+      {/* ── Consultant + date row ── */}
+      <div className="flex items-center gap-4 justify-end">
         <div className="text-right">
-          <p className="text-xs text-gray-400">المستشار</p>
-          <p className="text-white font-bold text-base mt-0.5">{appt.consultant.user.name}</p>
-          <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5 justify-end">
-            <span>{dateStr}{adminPending ? " - الوقت (يحدد بعد التأكيد)" : ` - ${pad2(scheduled.getHours())}:${pad2(scheduled.getMinutes())}`}</span>
+          <p className="text-[11px] text-gray-400 mb-0.5">المستشار</p>
+          <p className="text-white font-bold text-base leading-snug">{appt.consultant.user.name}</p>
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5 justify-end" dir="ltr">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg>
+            <span>{dateStr} — {timeStr}</span>
           </p>
         </div>
-        <div className="w-12 h-12 rounded-full bg-white/10 overflow-hidden flex items-center justify-center text-white font-bold">
+        <div className="w-14 h-14 rounded-full bg-white/10 overflow-hidden flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
           {appt.consultant.user.avatar
             ? <img src={appt.consultant.user.avatar} alt="" className="w-full h-full object-cover" />
             : appt.consultant.user.name?.[0] ?? "؟"}
         </div>
       </div>
 
-      {/* Status / payment / countdown panel */}
-      {!isPast && (
+      {/* ── State sections (only for upcoming) ── */}
+      {!isPast && adminPending && (
+        <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl px-4 py-3 text-center text-amber-300 text-sm font-semibold flex items-center justify-center gap-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          ينتظر تأكيد الإدارة
+        </div>
+      )}
+
+      {!isPast && !adminPending && appt.paymentStatus === "PENDING" && appt.paymentMethod === "ELECTRONIC" && (
+        <button
+          onClick={() => retryPayment(appt.id)}
+          disabled={retryLoading}
+          className="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-2xl py-3 font-bold text-sm transition-colors disabled:opacity-50"
+        >
+          {retryLoading ? "..." : "إكمال الدفع"}
+        </button>
+      )}
+
+      {/* Countdown (only when confirmed + future) */}
+      {!isPast && appt.status === "CONFIRMED" && msUntilStart > 0 && (
+        <div className="bg-white/[0.03] border border-white/10 rounded-2xl py-5 text-center space-y-2.5">
+          <p className="text-amber-400 text-xs font-medium flex items-center justify-center gap-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>
+            زر الدخول يُفعّل قبل الموعد بـ 30 دقيقة
+          </p>
+          <p className="text-white text-2xl sm:text-3xl font-bold">
+            {formatCountdownArabic(Math.max(0, msUntilJoinOpen))}
+          </p>
+          <p className="text-gray-400 text-xs">متبقي لفتح زر الدخول</p>
+        </div>
+      )}
+
+      {/* Join / disabled button (only when confirmed) */}
+      {!isPast && appt.status === "CONFIRMED" && (
         <>
-          {adminPending && (
-            <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl px-4 py-2.5 text-center text-amber-300 text-sm font-semibold">
-              ⏳ ينتظر تأكيد الإدارة
-            </div>
-          )}
-
-          {appt.paymentStatus === "PENDING" && appt.paymentMethod === "ELECTRONIC" && (
-            <button
-              onClick={() => retryPayment(appt.id)}
-              disabled={retryLoading}
-              className="w-full bg-amber-500 text-white rounded-2xl py-3 font-semibold text-sm"
-            >
-              {retryLoading ? "..." : "إكمال الدفع"}
-            </button>
-          )}
-
-          {/* Countdown — only when there's a meeting link expected */}
-          {appt.status === "CONFIRMED" && msUntilStart > 0 && (
-            <div className="bg-white/[0.03] border border-white/10 rounded-2xl py-5 text-center space-y-2">
-              <p className="text-amber-400 text-xs font-medium flex items-center justify-center gap-1.5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3.5 h-3.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><circle cx="12" cy="16" r=".5" fill="currentColor"/></svg>
-                زر الدخول يُفعّل قبل الموعد بـ 30 دقيقة
-              </p>
-              <p className="text-white text-3xl font-bold tracking-wider">
-                {formatCountdownArabic(Math.max(0, msUntilJoinOpen))}
-              </p>
-              <p className="text-gray-400 text-xs">متبقي لفتح زر الدخول</p>
-            </div>
-          )}
-
-          {/* Join / disabled button */}
           {appt.meetingLink && joinOpen && appt.paymentStatus === "PAID" ? (
             <a
               href={appt.meetingLink}
               target="_blank"
               rel="noreferrer"
-              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl py-3 font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+              className="w-full bg-indigo-500 hover:bg-indigo-600 text-white rounded-2xl py-3 font-bold text-sm flex items-center justify-center gap-2 transition-colors"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17 10.5V7a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>
               انضم للجلسة
             </a>
-          ) : appt.status === "CONFIRMED" ? (
+          ) : (
             <button
               disabled
-              className="w-full bg-indigo-400/30 text-white/60 rounded-2xl py-3 font-semibold text-sm flex items-center justify-center gap-2 cursor-not-allowed"
+              className="w-full bg-indigo-400/25 text-white/60 rounded-2xl py-3 font-bold text-sm flex items-center justify-center gap-2 cursor-not-allowed"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5"><path d="M17 10.5V7a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4Z"/></svg>
               الدخول غير متاح
             </button>
-          ) : null}
-
-          {appt.status === "CONFIRMED" && (
-            <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><path d="M12 9v4"/><circle cx="12" cy="17" r=".5" fill="currentColor"/><path d="M12 3 2 21h20L12 3Z"/></svg>
-              سيتم فتح الجلسة عبر Google Meet.
-            </p>
           )}
+          <p className="text-center text-xs text-gray-400 flex items-center justify-center gap-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-3 h-3"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/></svg>
+            سيتم فتح الجلسة عبر Google Meet
+          </p>
         </>
       )}
 
-      {/* Status pill (past sessions or non-confirmed) */}
-      {(isPast || appt.status !== "CONFIRMED") && !adminPending && (
-        <div className={`text-center text-sm font-semibold px-3 py-2 rounded-xl ${s.color}`}>
+      {/* Past / non-confirmed status pill */}
+      {(isPast || (appt.status !== "CONFIRMED" && !adminPending)) && (
+        <div className={`text-center text-sm font-semibold px-3 py-2.5 rounded-2xl ${s.color}`}>
           {s.label}
         </div>
       )}
 
-      {/* Chat button */}
-      {appt.status !== "CANCELLED" && anonUserId && (
-        <div className="flex justify-center pt-1">
-          <SessionChatButton anonUserId={anonUserId} appointmentId={appt.id} consultantName={appt.consultant.user.name ?? "المستشار"} />
+      {/* Chat — only after session COMPLETED */}
+      {canChat && anonUserId && (
+        <div className="flex justify-center pt-1 border-t border-white/5">
+          <div className="pt-4">
+            <SessionChatButton anonUserId={anonUserId} appointmentId={appt.id} consultantName={appt.consultant.user.name ?? "المستشار"} />
+          </div>
         </div>
       )}
     </div>
